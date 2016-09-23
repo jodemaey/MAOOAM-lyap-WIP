@@ -39,7 +39,7 @@ MODULE aotensor_def
   !> Epsilon to test equality with 0
   REAL(KIND=8), PARAMETER :: real_eps = 2.2204460492503131e-16
 
-  PUBLIC :: init_aotensor
+  PUBLIC :: init_aotensor, kdelta
 
   !> \f$\mathcal{T}_{i,j,k}\f$ - Tensor representation of the tendencies.
   TYPE(coolist), DIMENSION(:), ALLOCATABLE, PUBLIC :: aotensor
@@ -224,8 +224,9 @@ CONTAINS
 
     CALL simplify(aotensor)
 
-    CALL deallocate_inprod ! Clean the inner product tensors
-
+    !CALL deallocate_inprod ! Clean the inner product tensors
+    ! inner products are needed for energetics
+    
   END SUBROUTINE init_aotensor
 END MODULE aotensor_def
       

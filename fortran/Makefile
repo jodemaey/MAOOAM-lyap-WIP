@@ -64,14 +64,15 @@ endif
 .SUFFIXES:
 .SUFFIXES: .f90 .o .mod .out .test
 
-MODULES = util.mod params.mod inprod_analytic.mod aotensor_def.mod ic_def.mod ic_def_ext.mod $(INTEGRATOR).mod stat.mod tensor.mod tl_ad_tensor.mod $(TL_AD_INTEGRATOR).mod lyap_vectors.mod lyap_stat.mod $(IFPORT)
+MODULES = util.mod params.mod inprod_analytic.mod aotensor_def.mod ic_def.mod ic_def_ext.mod $(INTEGRATOR).mod stat.mod tensor.mod tl_ad_tensor.mod $(TL_AD_INTEGRATOR).mod lyap_vectors.mod lyap_stat.mod $(IFPORT) energy_stat.mod
 MODULE_OBJECTS = $(MODULES:.mod=.o)
 
-PROGRAMS = maooam maooam_lyapvectors
+PROGRAMS = maooam maooam_lyapvectors maooam_ene
 
 all: $(PROGRAMS)
 basic: maooam 
 lyap: maooam_lyapvectors 
+energy: maooam_ene
 debug: COMPILER_FLAGS = $(COMPILER_FLAGS_DBG) 
 debug: LD_FLAGS = $(LD_FLAGS_DBG)
 debug: all
@@ -95,6 +96,7 @@ tl_ad_tensor.mod: aotensor_def.mod
 $(TL_AD_INTEGRATOR).mod: tl_ad_tensor.mod
 lyap_vectors.mod: params.mod
 util.mod: $(IFPORT)
+energy_stat.mod: params.mod inprod_analytic.mod aotensor_def.mod
 
 clean:
 	$(RM) *.o *.mod $(PROGRAMS) $(TEST_PROGRAMS) tests/*.out
