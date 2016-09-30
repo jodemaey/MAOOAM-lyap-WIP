@@ -59,8 +59,8 @@ MODULE energy_stat
   
     TYPE(statistic) :: ocean_bot_fric !< Oceanic Friction with bottom
     TYPE(statistic) :: ocean_wind_drag!< Drag of Atmosphere on Ocean
-    TYPE(statistic) :: oc_LW_rad_rec !< Radiation loss of Ocean
-    TYPE(statistic) :: oc_LW_rad_loss !< Radiation Received Of Atmosphere
+    TYPE(statistic) :: oc_LW_rad_rec !<  LW radiation received by ocean
+    TYPE(statistic) :: oc_LW_rad_loss !< LW radiation lost to atmosphere
     TYPE(statistic) :: oc_SW_rad_rec ! < SW Radiation received
 
     TYPE(statistic) :: zonal_pot
@@ -134,8 +134,8 @@ MODULE energy_stat
     
       CALL sh%ocean_bot_fric%reset !< Oceanic Friction with bottom
       CALL sh%ocean_wind_drag%reset !< Drag of Atmosphere on Ocean
-      CALL sh%oc_LW_rad_rec%reset !< Radiation loss of Ocean
-      CALL sh%oc_LW_rad_loss%reset !< Radiation Received Of Atmosphere
+      CALL sh%oc_LW_rad_rec%reset  !< LW radiation received by ocean
+      CALL sh%oc_LW_rad_loss%reset !< LW radiation lost to atmosphere
       CALL sh%oc_SW_rad_rec%reset !< SW radiation received
       
       CALL sh%zonal_pot%reset
@@ -182,8 +182,8 @@ MODULE energy_stat
     
       CALL sh%ocean_bot_fric%acc !< Oceanic Friction with bottom
       CALL sh%ocean_wind_drag%acc !< Drag of Atmosphere on Ocean
-      CALL sh%oc_LW_rad_rec%acc !< Radiation loss of Ocean
-      CALL sh%oc_LW_rad_loss%acc !< Radiation Received Of Atmosphere
+      CALL sh%oc_LW_rad_rec%acc  !< LW radiation received by ocean
+      CALL sh%oc_LW_rad_loss%acc !< LW radiation lost to atmosphere
       CALL sh%oc_SW_rad_rec%acc !< SW radiation received
       CALL sh%oc_heat_exchange%acc !< heat exchange flux to ocean 
 
@@ -225,60 +225,67 @@ MODULE energy_stat
       oc_T=X(2*natm+noc+1:2*natm+2*noc)
       P3=P-T 
       P1=P+T 
-      CALL sh%zonal_atm_SW_rec%add(Cpa/sig0*T(1))
+      CALL sh%zonal_atm_SW_rec%add(2.0d0*Cpa/sig0*T(1))
 
       DO j=1,natm
-        omega=   (- 0.5d0*(mul_matrix(P1,atmos%b(j,:,:),P1)-mul_matrix(P3,atmos%b(j,:,:),P3)) & 
-                & + atmos%a(j,j)*mul_matrix(P,atmos%b(j,:,:),T)-betp*dot_product(atmos%c(j,:),T) &
-                & + (-2.0d0*kdp * atmos%a(j,j) +Lpa*atmos%a(j,j) + LSBpa*atmos%a(j,j))*T(j) &
-                & + 0.5d0 * kd * (atmos%a(j,j) * P3(j) - dot_product(atmos%d(j,:),oc_P)) &
-                & + (-0.5d0*Lpa*atmos%a(j,j) - LSBpo*atmos%a(j,j)) * dot_product(atmos%s(j,:),oc_T) &
-                & + Cpa * kdelta(1,j))/ &
-                & (-1.0d0+sig0*atmos%a(j,j)) 
-        SELECT CASE (awavenum(j)%typ) 
-          CASE ('A')        
-            CALL sh%zonal_pot%add(T(j)**2.0d0/sig0)
-            CALL sh%zonal_kin%add(-atmos%a(j,j)*T(j)**2.0d0)
-            CALL sh%zonal_kin%add(-atmos%a(j,j)*P(j)**2.0d0)
-            CALL sh%zonal_fric_internal%add(2.0d0*kdp*atmos%a(j,j)*T(j)*T(j))
-            CALL sh%zonal_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
-            & dot_product(atmos%d(j,1:noc),oc_P))))  
-            CALL sh%zonal_atm_LW_rec%add(T(j)*LSBpo/sig0*dot_product(atmos%s(j,:),oc_T))
-            CALL sh%zonal_atm_LW_loss%add(-T(j)**2.0d0*LSBpa/sig0)
-            CALL sh%zonal_heat_exchange%add(-Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
-            CALL sh%conv_zon2eddy_pot%add(T(j)*mul_matrix(P,atmos%g(j,:,:),T)/sig0)
-            CALL sh%conv_zon2eddy_kin%add(-(P1(j)*mul_matrix(P1,atmos%b(j,:,:),P1)+ &
-                                          & P3(j)*mul_matrix(P3,atmos%b(j,:,:),P3)))
-            CALL sh%zonal_pot2kin%add(-2.0d0*omega*T(j))      
-          CASE ('K')
-            CALL sh%eddy_pot%add(T(j)**2.0d0/sig0)
-            CALL sh%eddy_kin%add(-atmos%a(j,j)*T(j)**2.0d0)
-            CALL sh%eddy_kin%add(-atmos%a(j,j)*P(j)**2.0d0)
-            CALL sh%eddy_fric_internal%add(2.0d0*kdp*atmos%a(j,j)*T(j)*T(j))
-            CALL sh%eddy_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
-            & dot_product(atmos%d(j,1:noc),oc_P))))  
-            CALL sh%eddy_atm_LW_rec%add(T(j)*2.0d0*LSBpo/sig0*dot_product(atmos%s(j,1:noc),oc_T))
-            CALL sh%eddy_atm_LW_loss%add(-T(j)**2.0d0*LSBpa/sig0)
-            CALL sh%eddy_heat_exchange%add(-Lpa/sig0*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
-            CALL sh%eddy_pot2kin%add(-2.0d0*omega*T(j))
-          CASE ('L')
-            CALL sh%eddy_pot%add(T(j)**2.0d0/sig0)
-            CALL sh%eddy_kin%add(-atmos%a(j,j)*T(j)**2.0d0)
-            CALL sh%eddy_kin%add(-atmos%a(j,j)*P(j)**2.0d0)
-            CALL sh%eddy_fric_internal%add(2.0d0*kdp*atmos%a(j,j)*T(j)*T(j))
-            CALL sh%eddy_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
-            & dot_product(atmos%d(j,:),oc_P))))
-            CALL sh%eddy_atm_LW_rec%add(T(j)*2.0d0*LSBpo/sig0*dot_product(atmos%s(j,1:noc),oc_T))
-            CALL sh%eddy_atm_LW_loss%add(-T(j)**2.0d0*LSBpa/sig0)
-            CALL sh%eddy_heat_exchange%add(-Lpa/sig0*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
-            CALL sh%eddy_pot2kin%add(-2.0d0*omega*T(j))
-  
-        END SELECT
+        omega = (atmos%a(j,j)* ( - mul_matrix(P,atmos%g(j,:,:),T) &
+                               & - Lpa*(T(j)-0.5*dot_product(atmos%s(j,:),oc_T)) &
+                               & + LSBpo*dot_product(atmos%s(j,:),oc_T) &
+                               & - LSBpa*T(j) + Cpa*kdelta(1,j)) &
+            &  + 0.5d0*(mul_matrix(P1,atmos%b(j,:,:),P1) - mul_matrix(P3,atmos%b(j,:,:),P3)) &
+            &  + betp * dot_product(atmos%c(j,:),T) + 2.0d0*kdp*T(j)*atmos%a(j,j) &
+            &  - kd/2.0d0*(atmos%a(j,j)*P3(j)-dot_product(atmos%d(j,:),oc_P))) &
+            & /(1.0d0 - sig0*atmos%a(j,j))
+        IF (awavenum(j)%typ == 'A') THEN
+
+          CALL sh%zonal_pot%add(T(j)**2.0d0/sig0)
+
+          CALL sh%zonal_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0)
+
+          CALL sh%zonal_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0)
+
+          CALL sh%zonal_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
+          & dot_product(atmos%d(j,1:noc),oc_P))))  
+
+          CALL sh%zonal_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,:),oc_T))
+
+          CALL sh%zonal_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0)
+
+          CALL sh%zonal_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
+
+          CALL sh%conv_zon2eddy_pot%add( 2.d0*T(j)*mul_matrix(P,atmos%g(j,:,:),T)/sig0)
+
+          CALL sh%conv_zon2eddy_kin%add(-(P1(j)*mul_matrix(P1,atmos%b(j,:,:),P1)+ &
+          & P3(j)*mul_matrix(P3,atmos%b(j,:,:),P3)))
+
+          CALL sh%zonal_pot2kin%add(-2.0d0*omega*T(j)) 
+
+        ELSE
+
+          CALL sh%eddy_pot%add(T(j)**2.0d0/sig0)
+
+          CALL sh%eddy_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0)
+
+          CALL sh%eddy_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0)
+
+          CALL sh%eddy_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
+          & dot_product(atmos%d(j,1:noc),oc_P))))  
+
+          CALL sh%eddy_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,1:noc),oc_T))
+
+          CALL sh%eddy_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0)
+
+          CALL sh%eddy_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
+
+          CALL sh%eddy_pot2kin%add(-2.0d0*omega*T(j))
+
+        END IF
+
       END DO
     
-      CALL sh%oc_SW_rad_rec%add(Cpo*dot_product(oc_T,ocean%W(:,1)))
-      CALL sh%oc_LW_rad_rec%add(-sBpo*mul_matrix(oc_T,ocean%W,T))
-      CALL sh%oc_LW_rad_loss%add(+sBpa*sum(oc_T**2.0d0))
+      CALL sh%oc_SW_rad_rec%add(Cpo*dot_product(oc_T,ocean%W(:,1)*T(1)))
+      CALL sh%oc_LW_rad_rec%add(+sBpo*mul_matrix(oc_T,ocean%W,T))
+      CALL sh%oc_LW_rad_loss%add(-sBpa*sum(oc_T**2.0d0))
       CALL sh%oc_heat_exchange%add(-sc*Lpo*(sum(oc_T**2.0d0)-2.0d0*mul_matrix(oc_T,ocean%W(:,:),T))) !< heat exchange flux to ocean 
       CALL sh%ocean_bot_fric%add(-R*mul_matrix(oc_P,ocean%M,oc_P))
       CALL sh%ocean_wind_drag%add(-dp*(mul_matrix(oc_P,ocean%K,P3)-mul_diag(oc_P,ocean%M,oc_P)))
@@ -297,7 +304,7 @@ MODULE energy_stat
       IF (PRESENT(unitInt)) THEN
         U=unitInt
       ELSE
-        U=2346
+        U=2347
       END IF
 
       WRITE(U,'(10(ES15.5,5x))') sh%zonal_heat_exchange
