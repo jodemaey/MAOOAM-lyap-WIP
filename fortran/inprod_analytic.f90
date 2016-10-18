@@ -56,6 +56,7 @@ MODULE inprod_analytic
 
   !> Type holding the oceanic inner products tensors
   TYPE :: ocean_tensors
+     REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: ave 
      REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: K,M,N,W
      REAL(KIND=8), DIMENSION(:,:,:), ALLOCATABLE :: O,C
   END TYPE ocean_tensors
@@ -628,6 +629,33 @@ CONTAINS
     END DO
   END SUBROUTINE calculate_W
 
+  !> Mean Of Streamfunction Basis (oceanic)
+  !> 
+  !> \f$ AVE_{i} = (1, \eta_i))\f$ .
+  !
+  SUBROUTINE calculate_aveoc
+    INTEGER :: i,j,k
+    REAL(KIND=8) :: val
+    INTEGER :: AllocStat 
+
+    IF (noc == 0 ) THEN
+       STOP "*** Problem with calculate_ave : noc==0 ! ***"
+    ELSE
+       IF (.NOT. ALLOCATED(ocean%ave)) THEN
+          ALLOCATE(ocean%ave(noc), STAT=AllocStat)
+          IF (AllocStat /= 0) STOP "*** Not enough memory ! ***"
+       END IF
+    END IF
+    ocean%ave=0.D0
+    val=0.D0
+
+    DO i=1,noc
+      val = 2.*dble(((-1)**owavenum(j)%H-1)*((-1)**owavenum(j)%P-1))/(dble(owavenum(j)%H*owavenum(j)%P)*pi**2.)
+      IF (val /= 0.D0) ocean%ave(i) = val
+    END DO
+  END SUBROUTINE calculate_aveoc
+
+
   !-----------------------------------------------------!
   !                                                     !
   ! Initialisation routine                              !
@@ -713,7 +741,9 @@ CONTAINS
 
     CALL calculate_d
 
+    ! Calculate averages subtracted from oceanic streamfunction
 
+    CALL calculate_aveoc
 
   END SUBROUTINE init_inprod
 
