@@ -7,7 +7,7 @@
 
 
 MODULE energy_stat
-  USE params  !, only: ndim, oms, natm, noc
+  USE params  
   !
   ! inpord_analytic provides the coefficients for computing the tensor
   !
@@ -40,38 +40,40 @@ MODULE energy_stat
   TYPE :: energetics_type
             
     TYPE(statistic) :: zonal_heat_exchange !< Zonal Mean of  Heat exchange between atmosphere and ocean
-    TYPE(statistic) :: oc_heat_exchange !< Zonal Mean of  Heat exchange between atmosphere and ocean
-    TYPE(statistic) :: zonal_atm_LW_rec !< Zonal Mean of received radiation  of energy
-    TYPE(statistic) :: zonal_atm_LW_loss !< Zonal Mean of lost radiation of energy
-    TYPE(statistic) :: zonal_fric_ocean !< Zonal Mean of  friction with ocean
+    TYPE(statistic) :: oc_heat_exchange    !< Heat exchange between atmosphere and ocean (from ocean)
+    TYPE(statistic) :: zonal_atm_LW_rec    !< Zonal Mean of received radiation  of energy
+    TYPE(statistic) :: zonal_atm_LW_loss   !< Zonal Mean of lost radiation of energy
+    TYPE(statistic) :: zonal_fric_ocean    !< Zonal Mean of  friction with ocean
     TYPE(statistic) :: zonal_fric_internal !< Zonal Mean of  friction between layers
-    TYPE(statistic) :: zonal_pot2kin !< Zonal Mean of  potential to kinetic energy conversion
-    TYPE(statistic) :: zonal_atm_SW_rec !< Received short wave radiation
-    TYPE(statistic) :: conv_zon2eddy_pot !< Conversion of (zonal to eddy) potential energy
-    TYPE(statistic) :: conv_zon2eddy_kin !< Conversion of (zonal to eddy) kinetic energy
+    TYPE(statistic) :: zonal_pot2kin       !< Zonal Mean of  potential to kinetic energy conversion
+    TYPE(statistic) :: zonal_atm_SW_rec    !< Received short wave radiation
+    TYPE(statistic) :: conv_zon2eddy_pot   !< Conversion of (zonal to eddy) potential energy
+    TYPE(statistic) :: conv_zon2eddy_kin   !< Conversion of (zonal to eddy) kinetic energy
 
-    TYPE(statistic) :: eddy_heat_exchange !< Eddy field of  Heat exchange between atmosphere and ocean
-    TYPE(statistic) :: eddy_atm_LW_rec !< Eddy field of received radiation  of energy
-    TYPE(statistic) :: eddy_atm_LW_loss !< Eddy field of lost radiation of energy
-    TYPE(statistic) :: eddy_fric_ocean !< Eddy field of  friction with ocean
-    TYPE(statistic) :: eddy_fric_internal !< Eddy field of  friction between layers
-    TYPE(statistic) :: eddy_pot2kin !< Eddy field of  potential to kinetic energy conversion
+    TYPE(statistic) :: eddy_heat_exchange  !< Eddy field of  Heat exchange between atmosphere and ocean
+    TYPE(statistic) :: eddy_atm_LW_rec     !< Eddy field of received radiation  of energy
+    TYPE(statistic) :: eddy_atm_LW_loss    !< Eddy field of lost radiation of energy
+    TYPE(statistic) :: eddy_fric_ocean     !< Eddy field of  friction with ocean
+    TYPE(statistic) :: eddy_fric_internal  !< Eddy field of  friction between layers
+    TYPE(statistic) :: eddy_pot2kin        !< Eddy field of  potential to kinetic energy conversion
   
-    TYPE(statistic) :: ocean_bot_fric !< Oceanic Friction with bottom
-    TYPE(statistic) :: ocean_wind_drag!< Drag of Atmosphere on Ocean
-    TYPE(statistic) :: oc_LW_rad_rec !<  LW radiation received by ocean
-    TYPE(statistic) :: oc_LW_rad_loss !< LW radiation lost to atmosphere
-    TYPE(statistic) :: oc_SW_rad_rec ! < SW Radiation received
+    TYPE(statistic) :: ocean_bot_fric      !< Oceanic Friction with bottom
+    TYPE(statistic) :: ocean_wind_drag     !< Drag of Atmosphere on Ocean
+    TYPE(statistic) :: oc_LW_rad_rec       !< LW radiation received by ocean
+    TYPE(statistic) :: oc_LW_rad_loss      !< LW radiation lost to atmosphere
+    TYPE(statistic) :: oc_SW_rad_rec       !< SW Radiation received
 
-    TYPE(statistic) :: zonal_pot
-    TYPE(statistic) :: zonal_kin
-    TYPE(statistic) :: eddy_pot
-    TYPE(statistic) :: eddy_kin
-    TYPE(statistic) :: ocean_thermal
-    TYPE(statistic) :: ocean_potential
-    TYPE(statistic) :: ocean_kinetic
+    TYPE(statistic) :: zonal_pot           !< Zonal available potential energy in atmosphere
+    TYPE(statistic) :: zonal_kin           !< Zonal kinetic energy in atmosphere
+    TYPE(statistic) :: eddy_pot            !< Eddy available potential energy in atmosphere
+    TYPE(statistic) :: eddy_kin            !< Eddy kinetic energy in atmosphere
 
-   CONTAINS
+    TYPE(statistic) :: ocean_pot_tend      !< Tendency of Potential Energy in Ocean
+    TYPE(statistic) :: ocean_thermal       !< Thermal Energy in Ocean
+    TYPE(statistic) :: ocean_potential     !< Potential Energy in Ocean
+    TYPE(statistic) :: ocean_kinetic       !< Kinetic Energy in ocean
+   
+  CONTAINS
     procedure :: compute => compute_energetics
     procedure :: acc => acc_energetics
     procedure :: print_energy => print_energy
@@ -115,37 +117,38 @@ MODULE energy_stat
       ! Call reset procedure in statistic variables
       !
       CALL sh%zonal_heat_exchange%reset !< Zonal Mean of  Heat exchange between atmosphere and ocean
-      CALL sh%zonal_atm_LW_rec%reset !< Zonal Mean of received radiation  of energy
-      CALL sh%zonal_atm_LW_loss%reset !< Zonal Mean of lost radiation of energy
-      CALL sh%zonal_fric_ocean%reset !< Zonal Mean of  friction with ocean
+      CALL sh%zonal_atm_LW_rec%reset    !< Zonal Mean of received radiation  of energy
+      CALL sh%zonal_atm_LW_loss%reset   !< Zonal Mean of lost radiation of energy
+      CALL sh%zonal_fric_ocean%reset    !< Zonal Mean of  friction with ocean
       CALL sh%zonal_fric_internal%reset !< Zonal Mean of  friction between layers
-      CALL sh%zonal_pot2kin%reset !< Zonal Mean of  potential to kinetic energy conversion
-      CALL sh%zonal_atm_SW_rec%reset !< reveived short wave radiation 
+      CALL sh%zonal_pot2kin%reset       !< Zonal Mean of  potential to kinetic energy conversion
+      CALL sh%zonal_atm_SW_rec%reset    !< reveived short wave radiation 
 
-      CALL sh%conv_zon2eddy_pot%reset !< Conversion of (zonal to eddy) potential energy
-      CALL sh%conv_zon2eddy_kin%reset !< Conversion of (zonal to eddy) kinetic energy
+      CALL sh%conv_zon2eddy_pot%reset   !< Conversion of (zonal to eddy) potential energy
+      CALL sh%conv_zon2eddy_kin%reset   !< Conversion of (zonal to eddy) kinetic energy
   
-      CALL sh%eddy_heat_exchange%reset !< Eddy field of  Heat exchange between atmosphere and ocean
-      CALL sh%eddy_atm_LW_rec%reset !< Eddy field of received radiation  of energy
-      CALL sh%eddy_atm_LW_loss%reset !< Eddy field of lost radiation of energy
-      CALL sh%eddy_fric_ocean%reset !< Eddy field of  friction with ocean
-      CALL sh%eddy_fric_internal%reset !< Eddy field of  friction between layers
-      CALL sh%eddy_pot2kin%reset !< Eddy field of  potential to kinetic energy conversion
+      CALL sh%eddy_heat_exchange%reset  !< Eddy field of  Heat exchange between atmosphere and ocean
+      CALL sh%eddy_atm_LW_rec%reset     !< Eddy field of received radiation  of energy
+      CALL sh%eddy_atm_LW_loss%reset    !< Eddy field of lost radiation of energy
+      CALL sh%eddy_fric_ocean%reset     !< Eddy field of  friction with ocean
+      CALL sh%eddy_fric_internal%reset  !< Eddy field of  friction between layers
+      CALL sh%eddy_pot2kin%reset        !< Eddy field of  potential to kinetic energy conversion
     
-      CALL sh%ocean_bot_fric%reset !< Oceanic Friction with bottom
-      CALL sh%ocean_wind_drag%reset !< Drag of Atmosphere on Ocean
-      CALL sh%oc_LW_rad_rec%reset  !< LW radiation received by ocean
-      CALL sh%oc_LW_rad_loss%reset !< LW radiation lost to atmosphere
-      CALL sh%oc_SW_rad_rec%reset !< SW radiation received
+      CALL sh%ocean_bot_fric%reset      !< Oceanic Friction with bottom
+      CALL sh%ocean_wind_drag%reset     !< Drag of Atmosphere on Ocean
+      CALL sh%oc_LW_rad_rec%reset       !< LW radiation received by ocean
+      CALL sh%oc_LW_rad_loss%reset      !< LW radiation lost to atmosphere
+      CALL sh%oc_SW_rad_rec%reset       !< SW radiation received
       
-      CALL sh%zonal_pot%reset
-      CALL sh%zonal_kin%reset
-      CALL sh%eddy_pot%reset
-      CALL sh%eddy_kin%reset
-      CALL sh%ocean_thermal%reset
-      CALL sh%ocean_potential%reset
-      CALL sh%ocean_kinetic%reset
-      CALL sh%oc_heat_exchange%reset !< heat exchange flux to ocean 
+      CALL sh%zonal_pot%reset           !< Zonal available potential energy in atmosphere
+      CALL sh%zonal_kin%reset           !< Zonal kinetic energy in atmosphere
+      CALL sh%eddy_pot%reset            !< Eddy available potential energy in atmosphere
+      CALL sh%eddy_kin%reset            !< Eddy kinetic energy in atmosphere
+      CALL sh%ocean_thermal%reset       !< Thermal Energy in Ocean
+      CALL sh%ocean_potential%reset     !< Potential Energy in Ocean
+      CALL sh%ocean_kinetic%reset       !< Kinetic Energy in ocean
+      CALL sh%ocean_pot_tend%reset      !< Tendency of Potential Energy in Ocean
+      CALL sh%oc_heat_exchange%reset    !< heat exchange flux to ocean 
   
             
 
@@ -194,6 +197,7 @@ MODULE energy_stat
       CALL sh%ocean_thermal%acc
       CALL sh%ocean_potential%acc
       CALL sh%ocean_kinetic%acc
+      CALL sh%ocean_pot_tend%acc       !< Tendency of Potential Energy in Ocean
   
             
 
@@ -205,9 +209,18 @@ MODULE energy_stat
       IMPLICIT NONE
       CLASS(energetics_type) :: sh
       REAL(KIND=8), DIMENSION(0:ndim), INTENT(IN) :: x
-      REAL(KIND=8), DIMENSION(1:natm):: P,T,P3,P1
-      REAL(KIND=8), DIMENSION(1:noc) :: oc_P,oc_T
-      REAL(KIND=8) :: omega
+      REAL(KIND=8), DIMENSION(1:natm):: P,T,P3,P1 ! atmospheric streamfunctions
+      REAL(KIND=8), DIMENSION(1:noc) :: oc_P,oc_T ! oceanic streamfunction and temperature
+      REAL(KIND=8) :: omega ! vertical p-velocity
+      REAL(KIND=8) :: g_acc ! earth acceleration
+      REAL(KIND=8) :: deltaP ! pressure scale
+      REAL(KIND=8) :: density_oc ! density of ocean
+      REAL(KIND=8) :: units_atm       
+      REAL(KIND=8) :: units_oc_thermal
+      REAL(KIND=8) :: units_oc_kinetic
+      REAL(KIND=8) :: units_atm_tend        
+      REAL(KIND=8) :: units_oc_thermal_tend 
+      REAL(KIND=8) :: units_oc_kinetic_tend 
       INTEGER :: j
 
       
@@ -218,14 +231,33 @@ MODULE energy_stat
 
       ! Reset all values to zero
       CALL sh%reset
+
+      ! some constants needed
+      deltaP=50000. ! atmospheric pressure scale in Pa
+      g_acc=9.81 ! earths acceleration in m/s^2
+      density_oc = 1000. ! density of ocean in kg/m^3
+
+      ! dimensions for energies
+      units_atm        = deltaP / g_acc * L**2. * f0
+      units_oc_thermal = Go * (L*f0)**2./RR 
+      units_oc_kinetic = density_oc * H * L**2. * f0
+
+      ! dimensions for energy tendencies
+      units_atm_tend        = deltaP / g_acc * f0 * L**2. * f0
+      units_oc_thermal_tend = Go * f0 * (L*f0)**2./RR 
+      units_oc_kinetic_tend = density_oc * H * f0 * L**2. * f0
       
+      ! Prepare streamfunction and temperatures
       P=X(1:natm)
       T=X(natm+1:2*natm)
       oc_P=X(2*natm+1:2*natm+noc)
       oc_T=X(2*natm+noc+1:2*natm+2*noc)
       P3=P-T 
       P1=P+T 
-      CALL sh%zonal_atm_SW_rec%add(2.0d0*Cpa/sig0*T(1))
+
+      ! Start Atmospheric part
+
+      CALL sh%zonal_atm_SW_rec%add(2.0d0*Cpa/sig0*T(1)*units_atm_tend)
 
       DO j=1,natm
         omega = (atmos%a(j,j)* ( - mul_matrix(P,atmos%g(j,:,:),T) &
@@ -236,61 +268,78 @@ MODULE energy_stat
             &  + betp * dot_product(atmos%c(j,:),T) + 2.0d0*kdp*T(j)*atmos%a(j,j) &
             &  - kd/2.0d0*(atmos%a(j,j)*P3(j)-dot_product(atmos%d(j,:),oc_P))) &
             & /(1.0d0 - sig0*atmos%a(j,j))
+
         IF (awavenum(j)%typ == 'A') THEN
 
-          CALL sh%zonal_pot%add(T(j)**2.0d0/sig0)
+          CALL sh%zonal_pot%add(T(j)**2.0d0/sig0*units_atm)
 
-          CALL sh%zonal_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0)
+          CALL sh%zonal_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0*units_atm)
 
-          CALL sh%zonal_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0)
+          CALL sh%zonal_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0*units_atm_tend)
 
           CALL sh%zonal_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
-          & dot_product(atmos%d(j,1:noc),oc_P))))  
+          & dot_product(atmos%d(j,1:noc),oc_P)))*units_atm_tend)  
 
-          CALL sh%zonal_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,:),oc_T))
+          CALL sh%zonal_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,:),oc_T)*units_atm_tend)
 
-          CALL sh%zonal_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0)
+          CALL sh%zonal_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0*units_atm_tend)
 
-          CALL sh%zonal_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
+          CALL sh%zonal_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T))*units_atm_tend)
 
-          CALL sh%conv_zon2eddy_pot%add( 2.d0*T(j)*mul_matrix(P,atmos%g(j,:,:),T)/sig0)
+          CALL sh%conv_zon2eddy_pot%add( 2.d0*T(j)*mul_matrix(P,atmos%g(j,:,:),T)/sig0*units_atm_tend)
 
           CALL sh%conv_zon2eddy_kin%add(-(P1(j)*mul_matrix(P1,atmos%b(j,:,:),P1)+ &
-          & P3(j)*mul_matrix(P3,atmos%b(j,:,:),P3)))
+          & P3(j)*mul_matrix(P3,atmos%b(j,:,:),P3))*units_atm_tend)
 
-          CALL sh%zonal_pot2kin%add(-2.0d0*omega*T(j)) 
+          CALL sh%zonal_pot2kin%add(-2.0d0*omega*T(j)*units_atm_tend) 
 
         ELSE
 
-          CALL sh%eddy_pot%add(T(j)**2.0d0/sig0)
+          CALL sh%eddy_pot%add(T(j)**2.0d0/sig0*units_atm)
 
-          CALL sh%eddy_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0)
+          CALL sh%eddy_kin%add(-atmos%a(j,j)*T(j)**2.0d0-atmos%a(j,j)*P(j)**2.0d0*units_atm)
 
-          CALL sh%eddy_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0)
+          CALL sh%eddy_fric_internal%add(4.0d0*kdp*atmos%a(j,j)*T(j)**2.0d0*units_atm_tend)
 
           CALL sh%eddy_fric_ocean%add(kd*(P3(j)*(atmos%a(j,j)*P3(j)- &
-          & dot_product(atmos%d(j,1:noc),oc_P))))  
+          & dot_product(atmos%d(j,1:noc),oc_P)))*units_atm_tend)  
 
-          CALL sh%eddy_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,1:noc),oc_T))
+          CALL sh%eddy_atm_LW_rec%add(2.0d0*T(j)*LSBpo/sig0*dot_product(atmos%s(j,1:noc),oc_T)*units_atm_tend)
 
-          CALL sh%eddy_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0)
+          CALL sh%eddy_atm_LW_loss%add(-2.0d0*T(j)**2.0d0*LSBpa/sig0*units_atm_tend)
 
-          CALL sh%eddy_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T)))
+          CALL sh%eddy_heat_exchange%add(-2.0d0/sig0*Lpa*T(j)*(T(j)-0.5d0*dot_product(atmos%s(j,1:noc),oc_T))*units_atm_tend)
 
-          CALL sh%eddy_pot2kin%add(-2.0d0*omega*T(j))
+          CALL sh%eddy_pot2kin%add(-2.0d0*omega*T(j)*units_atm_tend)
 
         END IF
 
       END DO
-    
-      CALL sh%oc_SW_rad_rec%add(Cpo*dot_product(oc_T,ocean%W(:,1)*T(1)))
-      CALL sh%oc_LW_rad_rec%add(+sBpo*mul_matrix(oc_T,ocean%W,T))
-      CALL sh%oc_LW_rad_loss%add(-sBpa*sum(oc_T**2.0d0))
-      CALL sh%oc_heat_exchange%add(-sc*Lpo*(sum(oc_T**2.0d0)-2.0d0*mul_matrix(oc_T,ocean%W(:,:),T))) !< heat exchange flux to ocean 
-      CALL sh%ocean_bot_fric%add(-R*mul_matrix(oc_P,ocean%M,oc_P))
-      CALL sh%ocean_wind_drag%add(-dp*(mul_matrix(oc_P,ocean%K,P3)-mul_diag(oc_P,ocean%M,oc_P)))
-      CALL sh%ocean_potential%add(sum(oc_T**2.0d0)*G)
-      CALL sh%ocean_kinetic%add(-mul_diag(oc_T,ocean%M(:,:),oc_T))
+
+      ! Start oceanic part
+      
+      CALL sh%oc_SW_rad_rec%add(ocean%ave(1)*Cpo*units_oc_thermal_tend)
+
+      CALL sh%oc_LW_rad_rec%add(+sBpa*dot_product(ocean%ave,matmul(ocean%W,T))*units_oc_thermal_tend)
+
+      CALL sh%oc_LW_rad_loss%add(-sBpo*dot_product(ocean%ave,oc_T)*units_oc_thermal_tend)
+
+      CALL sh%oc_heat_exchange%add(-sc*Lpo*(sum(oc_T*ocean%ave)-2.0d0*mul_matrix(ocean%ave,ocean%W(:,:),T))*units_oc_thermal_tend)
+
+      CALL sh%ocean_bot_fric%add(rp*mul_matrix(oc_P,ocean%M,oc_P)*units_oc_kinetic_tend)
+
+      CALL sh%ocean_wind_drag%add(-dp*(mul_matrix(oc_P,ocean%K,P3)-mul_diag(oc_P,ocean%M,oc_P))*units_oc_kinetic_tend)
+
+      CALL sh%ocean_potential%add(-1./2.*sum(oc_P**2.0d0)*G*units_oc_kinetic)
+
+      CALL sh%ocean_thermal%add(dot_product(ocean%ave,oc_T)*units_oc_thermal)
+      
+      DO j=1,noc
+        CALL sh%ocean_pot_tend%add(oc_P(j)*(rp*dot_product(ocean%M(j,:),oc_P)- &
+        & dp*(dot_product(ocean%K(j,:),P3)-dot_product(ocean%M(j,:),oc_P)))/(ocean%M(j,j)+G)*(-G)*units_oc_kinetic_tend)
+      END DO
+
+      CALL sh%ocean_kinetic%add(-mul_diag(1./2.*oc_P,ocean%M(:,:),oc_P)*units_oc_kinetic)
             
     END SUBROUTINE compute_energetics
 
