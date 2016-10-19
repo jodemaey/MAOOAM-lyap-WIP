@@ -634,7 +634,7 @@ CONTAINS
   !> \f$ AVE_{i} = (1, \eta_i))\f$ .
   !
   SUBROUTINE calculate_aveoc
-    INTEGER :: i,j,k
+    INTEGER :: j
     REAL(KIND=8) :: val
     INTEGER :: AllocStat 
 
@@ -649,9 +649,9 @@ CONTAINS
     ocean%ave=0.D0
     val=0.D0
 
-    DO i=1,noc
+    DO j=1,noc
       val = 2.*dble(((-1)**owavenum(j)%H-1)*((-1)**owavenum(j)%P-1))/(dble(owavenum(j)%H*owavenum(j)%P)*pi**2.)
-      IF (val /= 0.D0) ocean%ave(i) = val
+      ocean%ave(i) = val
     END DO
   END SUBROUTINE calculate_aveoc
 
