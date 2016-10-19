@@ -651,7 +651,7 @@ CONTAINS
 
     DO j=1,noc
       val = 2.*dble(((-1)**owavenum(j)%H-1)*((-1)**owavenum(j)%P-1))/(dble(owavenum(j)%H*owavenum(j)%P)*pi**2.)
-      ocean%ave(i) = val
+      ocean%ave(j) = val
     END DO
   END SUBROUTINE calculate_aveoc
 
