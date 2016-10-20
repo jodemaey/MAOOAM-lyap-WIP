@@ -238,12 +238,12 @@ MODULE energy_stat
       density_oc = 1000. ! density of ocean in kg/m^3
 
       ! dimensions for energies
-      units_atm        = deltaP / g_acc * L**2. * f0
+      units_atm        = deltaP / g_acc * L**2. * f0**2.
       units_oc_thermal = Go * (L*f0)**2./RR 
       units_oc_kinetic = density_oc * H * L**2. * f0
 
       ! dimensions for energy tendencies
-      units_atm_tend        = deltaP / g_acc * f0 * L**2. * f0
+      units_atm_tend        = deltaP / g_acc * f0 * L**2. * f0**2.
       units_oc_thermal_tend = Go * f0 * (L*f0)**2./RR 
       units_oc_kinetic_tend = density_oc * H * f0 * L**2. * f0
       
