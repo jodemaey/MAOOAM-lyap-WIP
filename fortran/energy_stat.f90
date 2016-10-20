@@ -318,13 +318,13 @@ MODULE energy_stat
 
       ! Start oceanic part
       
-      CALL sh%oc_SW_rad_rec%add(ocean%ave(1)*Cpo*units_oc_thermal_tend)
-
+      CALL sh%oc_SW_rad_rec%add(Cpo*dot_product(ocean%ave,ocean%W(:,1))*units_oc_thermal_tend)
+      
       CALL sh%oc_LW_rad_rec%add(+sBpa*dot_product(ocean%ave,matmul(ocean%W,T))*units_oc_thermal_tend)
 
       CALL sh%oc_LW_rad_loss%add(-sBpo*dot_product(ocean%ave,oc_T)*units_oc_thermal_tend)
 
-      CALL sh%oc_heat_exchange%add(-sc*Lpo*(sum(oc_T*ocean%ave)-2.0d0*mul_matrix(ocean%ave,ocean%W(:,:),T))*units_oc_thermal_tend)
+      CALL sh%oc_heat_exchange%add(-Lpo*(sum(oc_T*ocean%ave)-2.0d0*mul_matrix(ocean%ave,ocean%W(:,:),T))*units_oc_thermal_tend)
 
       CALL sh%ocean_bot_fric%add(rp*mul_matrix(oc_P,ocean%M,oc_P)*units_oc_kinetic_tend)
 
@@ -335,8 +335,8 @@ MODULE energy_stat
       CALL sh%ocean_thermal%add(dot_product(ocean%ave,oc_T)*units_oc_thermal)
       
       DO j=1,noc
-        CALL sh%ocean_pot_tend%add(oc_P(j)*(rp*dot_product(ocean%M(j,:),oc_P)- &
-        & dp*(dot_product(ocean%K(j,:),P3)-dot_product(ocean%M(j,:),oc_P)))/(ocean%M(j,j)+G)*(-G)*units_oc_kinetic_tend)
+        CALL sh%ocean_pot_tend%add(oc_P(j)*(-rp*dot_product(ocean%M(j,:),oc_P) &
+        & + dp*(dot_product(ocean%K(j,:),P3)-dot_product(ocean%M(j,:),oc_P)))/(ocean%M(j,j)+G)*(-G)*units_oc_kinetic_tend)
       END DO
 
       CALL sh%ocean_kinetic%add(-mul_diag(1./2.*oc_P,ocean%M(:,:),oc_P)*units_oc_kinetic)
@@ -370,9 +370,9 @@ MODULE energy_stat
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_atm_LW_rec
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_atm_LW_loss
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_fric_ocean
-      WRITE(U,'(10(ES15.5,5x))') sh%eddy_fric_internal 
+      WRITE(U,'(10(ES15.5,5x))') sh%eddy_fric_internal
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_pot2kin
-      WRITE(U,'(10(ES15.5,5x))') sh%ocean_bot_fric 
+      WRITE(U,'(10(ES15.5,5x))') sh%ocean_bot_fric
       WRITE(U,'(10(ES15.5,5x))') sh%ocean_wind_drag
       WRITE(U,'(10(ES15.5,5x))') sh%oc_LW_rad_rec
       WRITE(U,'(10(ES15.5,5x))') sh%oc_LW_rad_loss
@@ -381,9 +381,10 @@ MODULE energy_stat
       WRITE(U,'(10(ES15.5,5x))') sh%zonal_kin       
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_pot      
       WRITE(U,'(10(ES15.5,5x))') sh%eddy_kin     
-      WRITE(U,'(10(ES15.5,5x))') sh%ocean_thermal    
+      WRITE(U,'(10(ES15.5,5x))') sh%ocean_thermal   
       WRITE(U,'(10(ES15.5,5x))') sh%ocean_potential  
       WRITE(U,'(10(ES15.5,5x))') sh%ocean_kinetic       
+      WRITE(U,'(10(ES15.5,5x))') sh%ocean_pot_tend
       
       REWIND(U)
 
@@ -430,7 +431,8 @@ MODULE energy_stat
       &, sh%eddy_kin%value  &     
       &, sh%ocean_thermal%value  &    
       &, sh%ocean_potential%value  &  
-      &, sh%ocean_kinetic%value
+      &, sh%ocean_kinetic%value  &
+      &, sh%ocean_pot_tend%value
 
 
     END SUBROUTINE print_energy
