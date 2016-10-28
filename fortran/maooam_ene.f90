@@ -11,10 +11,10 @@
 !
 !---------------------------------------------------------------------------!
 
-PROGRAM maooam 
+PROGRAM maooam_ene
   USE params, only: ndim, dt, tw, t_trans, t_run, writeout
   USE aotensor_def, only: init_aotensor
-  USE IC_def, only: load_IC, IC
+  USE IC_def_ext, only: load_IC, write_IC, IC
   USE integrator, only: init_integrator,step
   USE stat
   USE energy_stat, only: energetics
@@ -39,7 +39,7 @@ PROGRAM maooam
   write(FMTX,'(A10,i3,A6)') '(F10.2,4x,',ndim,'E15.5)'
   
   IF (writeout) OPEN(10,file='evol_field.dat')
-  IF (writeout) OPEN(20,file='energetics_ts.dat',form='unformatted',access='direct',recl=28*8,status='replace') ! 8 times number of energy terms computes in energy_stat.f90 
+  IF (writeout) OPEN(20,file='energetics_ts.dat',form='unformatted',access='direct',recl=29*8,status='replace') ! 8 times number of energy terms computes in energy_stat.f90 
   IF (writeout) OPEN(21,file='energetics_mean.dat',form='formatted',access='sequential',status='replace')
 
   ALLOCATE(X(0:ndim),Xnew(0:ndim))
@@ -56,6 +56,7 @@ PROGRAM maooam
      X=Xnew
      IF (mod(t/t_trans*100.D0,0.1)<t_up) WRITE(*,'(" Progress ",F6.1," %",A,$)') t/t_trans*100.D0,char(13)
   END DO
+  IF (t_trans > 0) CALL write_IC('after_transient_state',X) 
 
   PRINT*, 'Starting the time evolution...'
 
@@ -88,4 +89,4 @@ PROGRAM maooam
   IF (writeout) WRITE(10,*) X(1:ndim)
   IF (writeout) CLOSE(10)
 
-END PROGRAM maooam 
+END PROGRAM maooam_ene
