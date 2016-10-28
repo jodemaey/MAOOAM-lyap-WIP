@@ -1,12 +1,12 @@
 
-!> Energy statistics written by Sebastian Schubert
-!> based on stat.f90
+!> Energy statistics for CLVs written by Sebastian Schubert
+!> based on stat.f90 and energy_stat.f90
 !>
 !---------------------------------------------------------------------------!
 
 
 
-MODULE energy_stat
+MODULE energy_stat_clv
   USE params  
   !
   ! inpord_analytic provides the coefficients for computing the tensor
@@ -21,16 +21,16 @@ MODULE energy_stat
   
   TYPE :: statistic 
 
-    REAL(KIND=8) :: value=0.0d0
-    REAL(KIND=8) :: mean=0.0d0
-    REAL(KIND=8) :: xpower2=0.0d0
-    REAL(KIND=8) :: xpower3=0.0d0
-    REAL(KIND=8) :: xpower4=0.0d0
-    REAL(KIND=8) :: cumulant3=0.0d0
-    REAL(KIND=8) :: cumulant4=0.0d0
-    REAL(KIND=8) :: variance=0.0d0
-    REAL(KIND=8) :: skewness=0.0d0
-    REAL(KIND=8) :: kurtosis=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: value=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: mean=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: xpower2=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: xpower3=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: xpower4=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: cumulant3=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: cumulant4=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: variance=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: skewness=0.0d0
+    REAL(KIND=8), DIMENSION(ndim) :: kurtosis=0.0d0
    CONTAINS
       procedure :: acc => acc_stat 
       procedure :: reset => reset_value
@@ -486,4 +486,4 @@ MODULE energy_stat
     END SUBROUTINE reset_value
 
 
-  END MODULE energy_stat
+  END MODULE energy_stat_clv
