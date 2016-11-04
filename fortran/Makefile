@@ -16,7 +16,7 @@ endif
 # Define relevant compiler options for debug case and normal case for each compiler
 # Normal Case:
 IFORT_COMPILER_FLAGS = -assume byterecl -O3
-IFORT_LD_FLAGS = -mkl
+IFORT_LD_FLAGS = -mkl -parallel
 GCC_COMPILER_FLAGS = -frecord-marker=8 -O3 -funroll-loops
 GCC_LD_FLAGS = -llapack -lblas
 # Debug Case:
@@ -64,7 +64,7 @@ endif
 .SUFFIXES:
 .SUFFIXES: .f90 .o .mod .out .test
 
-MODULES = util.mod params.mod inprod_analytic.mod aotensor_def.mod ic_def.mod ic_def_ext.mod $(INTEGRATOR).mod stat.mod tensor.mod tl_ad_tensor.mod $(TL_AD_INTEGRATOR).mod lyap_vectors.mod lyap_stat.mod $(IFPORT) energy_stat.mod
+MODULES = util.mod params.mod inprod_analytic.mod aotensor_def.mod ic_def.mod ic_def_ext.mod $(INTEGRATOR).mod stat.mod tensor.mod tl_ad_tensor.mod $(TL_AD_INTEGRATOR).mod lyap_vectors.mod lyap_stat.mod $(IFPORT) energy_stat.mod energy_stat_clv.mod
 MODULE_OBJECTS = $(MODULES:.mod=.o)
 
 PROGRAMS = maooam maooam_lyapvectors maooam_ene
