@@ -224,5 +224,7 @@ CONTAINS
     IF (length_lyap .eq. 0) length_lyap=t_run-offset
     IF (length_lyap+offset .gt. t_run)  STOP "*** length_lyap+offset too long ! ***"
     IF (conv_BLV+conv_FLV .ge. length_lyap)  STOP "*** conv_BLV + conv_FLV  too long ! ***"
+    IF (rescaling_time .lt. dt) STOP "*** RESCALING_TIME must be greater equal DT ! ***"
+
   END SUBROUTINE init_params
 END MODULE params

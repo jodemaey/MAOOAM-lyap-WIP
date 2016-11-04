@@ -21,6 +21,8 @@ PROGRAM maooam_lyapvectors
   USE lyap_vectors, only:  lyapunov_BLV,loclyap_BLV,lyapunov_FLV,loclyap_FLV,lyapunov_CLV, &
  & loclyap_CLV,init_lyap,multiply_prop,benettin_step,compute_vectors,compute_exponents,init_ensemble,ginelli,get_lyap_state
   USE stat
+  USE energy_stat, only: energetics, init_energy, unit_mean_energy, unit_ts_energy
+  USE energy_stat_clv, only: energetics_clv, init_energy_clv, unit_mean_energy_clv, unit_ts_energy_clv
   USE lyap_stat
   USE util, only:str
   IMPLICIT NONE
@@ -38,16 +40,26 @@ PROGRAM maooam_lyapvectors
   PRINT*, '      - with computation of the Lyapunov spectrum'
   PRINT*, 'Loading information...'
 
-  CALL init_aotensor    ! Compute the tensors
-  CALL init_tltensor   
-  CALL load_IC          ! Load the initial condition
+  CALL init_aotensor          ! Compute the tensors
+  
+  CALL init_tltensor          ! Initialise tangent linear tensor
+  
+  CALL load_IC                ! Load the initial condition
 
-  CALL init_integrator  ! Initialize the integrator
+  CALL init_integrator        ! Initialize the integrator
+  
   CALL init_tl_ad_integrator  ! Initialize tangent linear integrator
-  CALL init_lyap        ! Initialize Lyapunov computation and open files for output of LVs and Les
+  
+  CALL init_lyap              ! Initialize Lyapunov computation and open files for output of LVs and Les
+  
+  CALL init_energy            ! initialize energy computation for non-linear state 
+  
+  CALL init_energy_clv       ! initialize energy computation for CLVs
+  
   write(FMTX,'(A10,i3,A7)') '(F10.2,4x,',ndim,'E30.15)'
 
-  IF (writeout) OPEN(10,file='evol_field.dat')
+  OPEN(10,file='evol_field_unformatted.dat',ACCESS='DIRECT',FORM='UNFORMATTED',RECL=8*ndim)
+  !IF (writeout) OPEN(10,file='evol_field.dat')
 
   ALLOCATE(X(0:ndim),Xnew(0:ndim),prop_buf(ndim,ndim))
   X=IC
@@ -111,10 +123,16 @@ PROGRAM maooam_lyapvectors
         CALL compute_exponents(t,IndexBen,.true.)
         CALL acc(X)
         CALL compute_vectors(t,IndexBen,.true.)
+        WRITE(10,rec=IndexBen) X(1:ndim) !< Save background state 
+        CALL energetics%compute(X)                      !< Compute Energy Terms
+        CALL energetics%acc                             !< accumulate energy statistics
+        IF (writeout) CALL energetics%print_energy(unit_ts_energy)  !< writeout momentary energy terms to unit 20
+        IF (writeout) CALL energetics%print_acc(unit_mean_energy)     !< writeout accumulated energy terms and statistics to unit 21
      END IF
      IF (mod(t,tw)<dt) THEN
         !! Uncomment if you want the trajectory (may generate a huge file!)
-        IF (writeout) WRITE(10,FMTX) t,X(1:ndim) 
+        !! X is written out whenever energy is being computed
+        !! IF (writeout) WRITE(10,FMTX) t,X(1:ndim) 
      END IF
    
      IF (mod(t/t_run*100.D0,0.1)<t_up) WRITE(*,'(" Progress ",F6.1," %",A,$)') t/t_run*100.D0,char(13)
@@ -135,6 +153,16 @@ PROGRAM maooam_lyapvectors
       CALL init_ensemble
     END IF
     DO WHILE (t>offset .AND. IndexBen>0)
+        !
+        ! Start of Energy Computation
+        !
+        CALL energetics_clv%compute(IndexBen)               !< Compute Energy Terms
+        CALL energetics_clv%acc                             !< accumulate energy statistics
+        IF (writeout) CALL energetics_clv%print_energy(unit_ts_energy_clv,IndexBen)  !< writeout momentary energy terms to unit 20
+        IF (writeout) CALL energetics_clv%print_acc(unit_mean_energy_clv)   !< writeout accumulated energy terms and statistics to unit 21
+        !
+        ! End of Energy Computation
+        !
 
       IF (compute_FLV .OR. compute_FLV_LE) CALL benettin_step(.false.,IndexBen) ! Performs QR step with prop
       IF (compute_CLV .OR. compute_CLV_LE) CALL ginelli(IndexBen)               ! Performs Ginelli step with prop

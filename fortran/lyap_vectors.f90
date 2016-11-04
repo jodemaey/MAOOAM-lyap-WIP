@@ -40,6 +40,7 @@ MODULE lyap_vectors
   
   PUBLIC :: benettin_step,ginelli,ensemble,init_lyap,multiply_prop,compute_vectors,compute_exponents
   PUBLIC :: loclyap_BLV,lyapunov_BLV,loclyap_FLV,lyapunov_FLV,loclyap_CLV,lyapunov_CLV, init_ensemble,get_lyap_state
+  PUBLIC :: CLV_real
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: loclyap_BLV    !< Buffer containing the local Lyapunov exponenti of BLV
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: lyapunov_BLV   !< Buffer containing the averaged Lyapunov exponent of BLV
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: loclyap_FLV    !< Buffer containing the local Lyapunov exponent of FLV
@@ -50,7 +51,7 @@ MODULE lyap_vectors
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: BLV      !< Buffer containing the Backward Lyapunov Vectors
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: FLV      !< Buffer containing the Forward Lyapunov Vectors
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: CLV      !< Buffer containing the Covariant Lyapunov Vectors
-  REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: buf_CLV  !< 2nd Buffer containing the Covariant Lyapunov Vectors in full coordinates
+  REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: CLV_real  !< Buffer containing the Covariant Lyapunov Vectors in full coordinates
    
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: ensemble !< Buffer containing the QR decompsoition of the ensemble
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: prop     !< Buffer holding the propagator matrix
@@ -64,6 +65,8 @@ MODULE lyap_vectors
   INTEGER, DIMENSION(:), ALLOCATABLE :: IPIV                      !< Necessary for dgetrs
   
   REAL(KIND=8), DIMENSION(:,:), ALLOCATABLE :: one
+  
+  INTEGER, DIMENSION(:,:) , ALLOCATABLE :: fileunits !< stores all file unit numbers
 
   INTEGER :: timestepsperfile ! Maximum number of rescaling_time length time steps to fit in maxfilesize
   INTEGER :: numfiles     ! Number of files that contain the LV/LE data
@@ -90,6 +93,8 @@ CONTAINS
   !> Open files for storage and writeout of data
   SUBROUTINE init_lyap
     INTEGER :: AllocStat,ilaenv,info,k
+    LOGICAL :: ex ! test if file unit exists  
+    REAL(KIND=8) :: t 
     ALLOCATE(one(ndim,ndim))
     CALL init_one(one)
     lwork=ilaenv(1,"dgeqrf"," ",ndim,ndim,ndim,-1)
@@ -100,39 +105,108 @@ CONTAINS
     ! Files for output and temporary storage
     ! Maximum number of rescaling_time length time steps: maxfilesize*1024*1024/(8*ndim^2).
     timestepsperfile = int(ceiling(maxfilesize*1024.*1024./dble(8*ndim*ndim)))
-    totalnumtimesteps = floor(t_run/rescaling_time) + 1
+     
+    !
+    ! Determine number of timesteps in total directly. Necessary since rounding
+    ! errors occour for longer runs
+    !
+    t=0.0D0
+    totalnumtimesteps=0
+    DO WHILE (t .LE. t_run)
+      t=t+dt
+      IF (mod(t,rescaling_time) < dt) totalnumtimesteps=totalnumtimesteps+1
+    END DO
+
     numfiles = ceiling(totalnumtimesteps/dble(timestepsperfile))
     stride=int(10.**ceiling(log(dble(numfiles))/log(10.)))
     IF (stride.eq.1) stride=10
+    
+    !
+    ! Check fileunits
+    !
+
+    ALLOCATE(fileunits(8,numfiles))
+    fileunits=0
     DO k=1,numfiles
-      IF (compute_BLV .OR. compute_CLV)&
+      fileunits(:,k) = (/ 12 , 11 , 22, 21,23,32,31,33/)*stride +k
+    END DO
+
+    DO k=1,numfiles
+      
+      INQUIRE(unit=12*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        write(*,*) "*** file unit conflicti! stride: ",&
+        & stride,", k:",k,", unit:",12*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_BLV .OR. compute_CLV))&
       &OPEN(12*stride+k,file='BLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      IF (compute_BLV_LE) &
+      
+      INQUIRE(unit=11*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",11*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_BLV_LE))  &
       &OPEN(11*stride+k,file='BLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-      IF (compute_FLV) &
+      
+      INQUIRE(unit=22*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",22*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_FLV))  &
       &OPEN(22*stride+k,file='FLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      IF (compute_FLV_LE) &
+    
+      INQUIRE(unit=21*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",21*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_FLV_LE))  &
       &OPEN(21*stride+k,file='FLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-      IF (compute_FLV .OR. compute_FLV_LE) &
+
+      INQUIRE(unit=23*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN 
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",23*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_FLV .OR. compute_FLV_LE))  &
       &OPEN(23*stride+k,file='propagator_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      IF (compute_CLV) &
+    
+      INQUIRE(unit=32*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",32*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_CLV))  &
       &OPEN(32*stride+k,file='CLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      IF (compute_CLV_LE) &
+      
+      INQUIRE(unit=31*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN 
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",31*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_CLV_LE))  &
       &OPEN(31*stride+k,file='CLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-      IF (compute_CLV .OR. compute_CLV_LE) &
+     
+      INQUIRE(unit=33*stride+k, EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflicti! stride: " ,&
+        & stride,", k:",k,", unit:",33*stride+k ," ***"; STOP
+      END IF
+      IF ((compute_CLV .OR. compute_CLV_LE))  &
       &OPEN(33*stride+k,file='R_part_'//trim(str(k))//'.dat',status='replace',&
       &form='UNFORMATTED',access='DIRECT',recl=8*ndim*(ndim+1)/2)
     END DO
 
-
-    IF (compute_BLV .OR. compute_BLV_LE) ALLOCATE(BLV(ndim,ndim))
+    IF (compute_BLV .OR. compute_BLV_LE .OR. compute_CLV) ALLOCATE(BLV(ndim,ndim))
     IF (compute_BLV_LE) THEN
       ALLOCATE(lyapunov_BLV(ndim),loclyap_BLV(ndim));loclyap_BLV=0.D0;lyapunov_BLV=0.D0
     END IF
@@ -140,9 +214,11 @@ CONTAINS
     IF (compute_FLV_LE) THEN 
       ALLOCATE(lyapunov_FLV(ndim),loclyap_FLV(ndim));loclyap_FLV=0.D0;lyapunov_FLV=0.D0
     END IF
-    IF (compute_CLV .OR. compute_CLV_LE) ALLOCATE(CLV(ndim,ndim),R(ndim*(ndim+1)/2))
+    IF (compute_CLV .OR. compute_CLV_LE) THEN
+      ALLOCATE(CLV_real(ndim,ndim)) ! Contains CLV in real coordinates 
+      ALLOCATE(CLV(ndim,ndim),R(ndim*(ndim+1)/2))
+    END IF
     IF (compute_CLV_LE) THEN
-      ALLOCATE(buf_CLV(ndim,ndim)) ! Buffer may be used as buffer
       ALLOCATE(lyapunov_CLV(ndim),loclyap_CLV(ndim))
       loclyap_CLV=0.D0;lyapunov_CLV=0.D0
     END IF
@@ -263,7 +339,7 @@ CONTAINS
    IF (past_conv_BLV) THEN
      IF (forward) THEN
 
-       IF (compute_BLV .AND. before_conv_FLV) THEN
+       IF ((compute_CLV .OR. compute_BLV ).AND. before_conv_FLV) THEN
          BLV=ensemble ! make copy of QR decomposed ensemble     
          CALL DORGQR(ndim,ndim,ndim,BLV,ndim,tau,work,lwork,info) !retrieve Q (BLV) matrix 
          CALL write_lyapvec(step+1,BLV,12,directionBLV) !write Q (BLV) matrix
@@ -284,8 +360,8 @@ CONTAINS
 
        IF (compute_CLV .AND. before_conv_FLV) THEN
          CALL read_lyapvec(step,BLV,12,directionBLV)
-         CALL DGEMM ('n', 'n', ndim, ndim,ndim, 1.0d0, BLV, ndim,CLV, ndim,0.D0,buf_CLV,ndim) 
-         CALL write_lyapvec(step,buf_CLV,32,directionCLV) 
+         CALL DGEMM ('n', 'n', ndim, ndim,ndim, 1.0d0, BLV, ndim,CLV, ndim,0.D0,CLV_real,ndim) 
+         CALL write_lyapvec(step,CLV_real,32,directionCLV) 
        END IF
      END IF
    END IF   
@@ -386,7 +462,7 @@ CONTAINS
    LOGICAL :: rev
    REAL(KIND=8), DIMENSION(ndim,ndim), INTENT(IN) :: vectors
      IF (rev) THEN
-       revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
+       revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?) TEMPORARY FIX BY ADDING +2 in line 104 to totalnumtimesteps
      ELSE
        revI = i
      END IF
