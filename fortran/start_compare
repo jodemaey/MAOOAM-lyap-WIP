@@ -1,0 +1,26 @@
+#!/bin/bash
+# This scripts makes two runs that can be compared using compare_vec_exp.f90
+#
+
+
+rm *.dat
+#make INTMODE=rk4 nonlin= maooam_lyapvectors
+# Set transient phase in first run
+sed -i '/T_TRANS/c\  T_TRANS = 1.D7' int_params.nml      
+
+./maooam_lyapvectors
+for f in $(ls *_part_*.dat | awk '/part_[0-9]+.dat/{print $0}'); do mv ${f} "${f%.dat}_0.dat"; done
+
+# Copy initial state
+cp IC_after_transient.nml IC.nml
+# No transient in 2nd run
+sed -i '/T_TRANS/c\  T_TRANS = 0.D0' int_params.nml      
+
+#make INTMODE=rk4 nonlin=true maooam_lyapvectors_smallper
+./maooam_lyapvectors_smallper
+for f in $(ls *_part_*.dat | awk '/part_[0-9]+.dat/{print $0}'); do mv ${f} "${f%.dat}_1.dat"; done
+
+ifort -assume byterecl -o compare.x compare_exp_vec.f90 params.f90 util.f90 lyap_vectors.f90 -mkl
+
+./compare.x 2
+
