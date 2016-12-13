@@ -40,7 +40,8 @@ MODULE lyap_vectors
   
   PUBLIC :: benettin_step,ginelli,ensemble,init_lyap,multiply_prop,compute_vectors,compute_exponents
   PUBLIC :: loclyap_BLV,lyapunov_BLV,loclyap_FLV,lyapunov_FLV,loclyap_CLV,lyapunov_CLV, init_ensemble,get_lyap_state
-  PUBLIC :: CLV_real
+  PUBLIC :: CLV_real,prop
+  PUBLIC :: open_files,read_lyapvec,read_lyapexp,read_R,fileunits,numfiles
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: loclyap_BLV    !< Buffer containing the local Lyapunov exponenti of BLV
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: lyapunov_BLV   !< Buffer containing the averaged Lyapunov exponent of BLV
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: loclyap_FLV    !< Buffer containing the local Lyapunov exponent of FLV
@@ -93,8 +94,6 @@ CONTAINS
   !> Open files for storage and writeout of data
   SUBROUTINE init_lyap
     INTEGER :: AllocStat,ilaenv,info,k
-    LOGICAL :: ex ! test if file unit exists  
-    REAL(KIND=8) :: t 
     ALLOCATE(one(ndim,ndim))
     CALL init_one(one)
     lwork=ilaenv(1,"dgeqrf"," ",ndim,ndim,ndim,-1)
@@ -102,109 +101,7 @@ CONTAINS
     ALLOCATE(prop_buf(ndim,ndim),ensemble(ndim,ndim),tau(ndim),prop(ndim,ndim), &
     & work2(ndim),work(lwork),STAT=AllocStat) 
     
-    ! Files for output and temporary storage
-    ! Maximum number of rescaling_time length time steps: maxfilesize*1024*1024/(8*ndim^2).
-    timestepsperfile = int(ceiling(maxfilesize*1024.*1024./dble(8*ndim*ndim)))
-     
-    !
-    ! Determine number of timesteps in total directly. Necessary since rounding
-    ! errors occour for longer runs
-    !
-    t=0.0D0
-    totalnumtimesteps=0
-    DO WHILE (t .LE. t_run)
-      t=t+dt
-      IF (mod(t,rescaling_time) < dt) totalnumtimesteps=totalnumtimesteps+1
-    END DO
-
-    numfiles = ceiling(totalnumtimesteps/dble(timestepsperfile))
-    stride=int(10.**ceiling(log(dble(numfiles))/log(10.)))
-    IF (stride.eq.1) stride=10
-    
-    !
-    ! Check fileunits
-    !
-
-    ALLOCATE(fileunits(8,numfiles))
-    fileunits=0
-    DO k=1,numfiles
-      fileunits(:,k) = (/ 12 , 11 , 22, 21,23,32,31,33/)*stride +k
-    END DO
-
-    DO k=1,numfiles
-      
-      INQUIRE(unit=12*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        write(*,*) "*** file unit conflicti! stride: ",&
-        & stride,", k:",k,", unit:",12*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_BLV .OR. compute_CLV))&
-      &OPEN(12*stride+k,file='BLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      
-      INQUIRE(unit=11*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",11*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_BLV_LE))  &
-      &OPEN(11*stride+k,file='BLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-      
-      INQUIRE(unit=22*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",22*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_FLV))  &
-      &OPEN(22*stride+k,file='FLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-    
-      INQUIRE(unit=21*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",21*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_FLV_LE))  &
-      &OPEN(21*stride+k,file='FLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-
-      INQUIRE(unit=23*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN 
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",23*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_FLV .OR. compute_FLV_LE))  &
-      &OPEN(23*stride+k,file='propagator_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-    
-      INQUIRE(unit=32*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",32*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_CLV))  &
-      &OPEN(32*stride+k,file='CLV_vec_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
-      
-      INQUIRE(unit=31*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN 
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",31*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_CLV_LE))  &
-      &OPEN(31*stride+k,file='CLV_exp_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
-     
-      INQUIRE(unit=33*stride+k, EXIST=ex )
-      IF (.NOT.ex) THEN
-        WRITE(*,*) "*** file unit conflicti! stride: " ,&
-        & stride,", k:",k,", unit:",33*stride+k ," ***"; STOP
-      END IF
-      IF ((compute_CLV .OR. compute_CLV_LE))  &
-      &OPEN(33*stride+k,file='R_part_'//trim(str(k))//'.dat',status='replace',&
-      &form='UNFORMATTED',access='DIRECT',recl=8*ndim*(ndim+1)/2)
-    END DO
+    CALL open_files('replace')
 
     IF (compute_BLV .OR. compute_BLV_LE .OR. compute_CLV) ALLOCATE(BLV(ndim,ndim))
     IF (compute_BLV_LE) THEN
@@ -226,7 +123,7 @@ CONTAINS
     
     CALL init_ensemble 
     IF (compute_BLV .OR. compute_CLV) THEN
-      CALL write_lyapvec(1,BLV,12,directionBLV) 
+      CALL write_lyapvec(1,BLV,1,directionBLV) 
     END IF
     IF (compute_CLV .OR. compute_CLV_LE) THEN
       CALL random_number(CLV)
@@ -239,7 +136,155 @@ CONTAINS
       END IF
     END IF
   END SUBROUTINE init_lyap
- 
+  
+  !> Subroutines open all necessary files
+  !> Respects write directions specified in namelist "int_params.nml"
+
+  SUBROUTINE open_files(filestatus,apex)
+    CHARACTER(LEN=*) :: filestatus
+    CHARACTER(LEN=*),optional :: apex
+    CHARACTER(LEN=:), ALLOCATABLE :: apexfull
+    LOGICAL :: ex ! test if file unit exists  
+    LOGICAL :: test ! test if file unit exists, buffer
+    INTEGER :: k,j
+    REAL(KIND=8) :: t 
+
+    IF (.NOT. PRESENT(apex)) THEN
+      ALLOCATE(CHARACTER(LEN=0) :: apexfull)
+      apexfull=''
+    ELSE
+      ALLOCATE(CHARACTER(LEN=len(apex)+1) :: apexfull)
+      apexfull='_'//apex
+    END IF
+    ! Files for output and temporary storage
+    ! Maximum number of rescaling_time length time steps: maxfilesize*1024*1024/(8*ndim^2).
+    timestepsperfile = int(ceiling(maxfilesize*1024.*1024./dble(8*ndim*ndim)))
+     
+    !
+    ! Determine number of timesteps in total directly. Necessary since rounding
+    ! errors occour for longer runs
+    !
+    t=0.0D0
+    totalnumtimesteps=0
+    DO WHILE (t .LE. t_run)
+      t=t+dt
+      IF (mod(t,rescaling_time) < dt) totalnumtimesteps=totalnumtimesteps+1
+    END DO
+
+    numfiles = ceiling(totalnumtimesteps/dble(timestepsperfile))
+    stride=int(10.**ceiling(log(dble(numfiles))/log(10.)))
+    
+    !
+    ! Check fileunits
+    !
+
+    IF (.NOT. ALLOCATED(fileunits)) THEN 
+      ALLOCATE(fileunits(8,numfiles))
+    ELSE
+      DEALLOCATE(fileunits)
+      ALLOCATE(fileunits(8,numfiles))
+    END IF
+
+    ! Increase stride value until all fileunits are new and unique
+    !write(*,*) ' Initial stride: ',stride
+    test=.false.
+    DO WHILE (.NOT. test)
+      test=.true.
+      ! Give standard value sto fileunits
+      fileunits=0
+      DO k=1,numfiles
+        fileunits(:,k) = (/ 10, 20 , 30, 40,50,60,70,80/)*stride +k
+      END DO
+  
+      DO k=1,numfiles
+        DO j=1,8
+          INQUIRE(unit=fileunits(j,k),OPENED=ex)
+          IF (ex) test=.false. 
+          !IF (ex) write(*,*) 'ex=false',fileunits(j,k) 
+        END DO
+      END DO
+      IF (.not. test) stride=stride*10
+      !IF (.not. test) write(*,*) 'stride: ',stride
+      !IF (test) WRITE(*,*) 'SUCCESFUL SHIFTED FILEUNITS, with stride = ',stride
+    END DO
+
+    DO k=1,numfiles
+      
+      INQUIRE(unit=fileunits(1,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        write(*,*) "*** file unit conflict! stride: ",&
+        & stride,", k:",k,", unit:",fileunits(1,k) ," ***"; STOP
+      END IF
+      IF ((compute_BLV .OR. compute_CLV))&
+      &OPEN(fileunits(1,k),file='BLV_vec_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
+      
+      INQUIRE(unit=fileunits(2,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(2,k) ," ***"; STOP
+      END IF
+      IF ((compute_BLV_LE))  &
+      &OPEN(fileunits(2,k),file='BLV_exp_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
+      
+      INQUIRE(unit=fileunits(3,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(3,k) ," ***"; STOP
+      END IF
+      IF ((compute_FLV))  &
+      &OPEN(fileunits(3,k),file='FLV_vec_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
+    
+      INQUIRE(unit=fileunits(4,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(4,k) ," ***"; STOP
+      END IF
+      IF ((compute_FLV_LE))  &
+      &OPEN(fileunits(4,k),file='FLV_exp_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
+
+      INQUIRE(unit=fileunits(5,k), EXIST=ex )
+      IF (.NOT.ex) THEN 
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(5,k) ," ***"; STOP
+      END IF
+      IF ((compute_FLV .OR. compute_FLV_LE))  &
+      &OPEN(fileunits(5,k),file='propagator_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
+    
+      INQUIRE(unit=fileunits(6,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(6,k) ," ***"; STOP
+      END IF
+      IF ((compute_CLV))  &
+      &OPEN(fileunits(6,k),file='CLV_vec_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim**2)
+      
+      INQUIRE(unit=fileunits(7,k), EXIST=ex )
+      IF (.NOT.ex) THEN 
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(7,k) ," ***"; STOP
+      END IF
+      IF ((compute_CLV_LE))  &
+      &OPEN(fileunits(7,k),file='CLV_exp_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim)
+
+      INQUIRE(unit=fileunits(8,k), EXIST=ex )
+      IF (.NOT.ex) THEN
+        WRITE(*,*) "*** file unit conflict! stride: " ,&
+        & stride,", k:",k,", unit:",fileunits(8,k) ," ***"; STOP
+      END IF
+      IF ((compute_CLV .OR. compute_CLV_LE))  &
+      &OPEN(fileunits(8,k),file='R_part_'//trim(str(k))//apexfull//'.dat',status=filestatus,&
+      &form='UNFORMATTED',access='DIRECT',recl=8*ndim*(ndim+1)/2)
+    END DO
+  END SUBROUTINE open_files
+
+
   !> Routine to initialise ensmble. Will be called externally (therefore
   !> separate routine) 
   SUBROUTINE init_ensemble
@@ -271,7 +316,7 @@ CONTAINS
     LOGICAL :: forward 
     
     IF (.NOT. forward .AND. (compute_FLV .OR. compute_FLV_LE)) THEN
-      CALL read_lyapvec(step,prop,23,directionPROP)
+      CALL read_lyapvec(step,prop,5,directionPROP)
       prop_buf=transpose(prop)
       ! Multiply the Propagator prop from the right side with the non transposed q matrix
       ! from the qr decomposition which is stored in ensemble.
@@ -306,15 +351,15 @@ CONTAINS
     END IF
     
     
-   END SUBROUTINE benettin_step
+  END SUBROUTINE benettin_step
    
    !> This routine performs the backward ginelli step
    SUBROUTINE ginelli(step)
-   INTEGER :: step,info
-      CALL read_R(step,33,directionR)
-      CALL DTPTRS('u','n','n',ndim,ndim,R,CLV,ndim,info)
-      CALL normMAT(CLV,loclyap_CLV)
-      loclyap_CLV=-log(abs(loclyap_CLV))/rescaling_time
+     INTEGER :: step,info
+     CALL read_R(step,8,directionR)
+     CALL DTPTRS('u','n','n',ndim,ndim,R,CLV,ndim,info)
+     CALL normMAT(CLV,loclyap_CLV)
+     loclyap_CLV=-log(abs(loclyap_CLV))/rescaling_time
    END SUBROUTINE ginelli
 
    !> Routine that returns the current global propagator and ensemble of
@@ -328,201 +373,231 @@ CONTAINS
    !> Routine that saves the BLV, FLV and CLV if in right time period according
    !> to namelist parameters in int_params.nml
    SUBROUTINE compute_vectors(t,step,forward)
-   INTEGER :: step
-   REAL(KIND=8) :: t
-   LOGICAL :: forward
-   LOGICAL :: past_conv_BLV,before_conv_FLV
-   INTEGER :: info
+     INTEGER :: step
+     REAL(KIND=8) :: t
+     LOGICAL :: forward
+     LOGICAL :: past_conv_BLV,before_conv_FLV
+     INTEGER :: info
 
-   past_conv_BLV=(t-offset.gt.conv_BLV)
-   before_conv_FLV=(t-offset.lt.length_lyap-conv_FLV)
-   IF (past_conv_BLV) THEN
-     IF (forward) THEN
+     past_conv_BLV=(t-offset.gt.conv_BLV)
+     before_conv_FLV=(t-offset.lt.length_lyap-conv_FLV)
+     IF (past_conv_BLV) THEN
+       IF (forward) THEN
 
-       IF ((compute_CLV .OR. compute_BLV ).AND. before_conv_FLV) THEN
-         BLV=ensemble ! make copy of QR decomposed ensemble     
-         CALL DORGQR(ndim,ndim,ndim,BLV,ndim,tau,work,lwork,info) !retrieve Q (BLV) matrix 
-         CALL write_lyapvec(step+1,BLV,12,directionBLV) !write Q (BLV) matrix
+         IF ((compute_CLV .OR. compute_BLV ).AND. before_conv_FLV) THEN
+           BLV=ensemble ! make copy of QR decomposed ensemble     
+           CALL DORGQR(ndim,ndim,ndim,BLV,ndim,tau,work,lwork,info) !retrieve Q (BLV) matrix 
+           CALL write_lyapvec(step+1,BLV,1,directionBLV) !write Q (BLV) matrix
+         END IF
+
+         IF (compute_FLV .OR. compute_FLV_LE) CALL write_lyapvec(step,prop,5,directionPROP)
+         IF (compute_CLV .OR. compute_CLV_LE) THEN
+           CALL packTRI(ensemble,R)
+           CALL write_R(step,8,directionR)
+         END IF
+
+       ELSE
+         IF (compute_FLV .AND. before_conv_FLV) THEN
+           FLV=ensemble ! make copy of QR decomposed ensemble     
+           CALL DORGQR(ndim,ndim,ndim,FLV,ndim,tau,work,lwork,info) !retrieve Q (BLV) matrix 
+           CALL write_lyapvec(step,FLV,3,directionFLV)
+         END IF
+
+         IF (compute_CLV .AND. before_conv_FLV) THEN
+           CALL read_lyapvec(step,BLV,1,directionBLV)
+           CALL DGEMM ('n', 'n', ndim, ndim,ndim, 1.0d0, BLV, ndim,CLV, ndim,0.D0,CLV_real,ndim) 
+           CALL write_lyapvec(step,CLV_real,6,directionCLV) 
+         END IF
        END IF
-
-       IF (compute_FLV .OR. compute_FLV_LE) CALL write_lyapvec(step,prop,23,directionPROP)
-       IF (compute_CLV .OR. compute_CLV_LE) THEN
-         CALL packTRI(ensemble,R)
-         CALL write_R(step,33,directionR)
-       END IF
-
-     ELSE
-       IF (compute_FLV .AND. before_conv_FLV) THEN
-         FLV=ensemble ! make copy of QR decomposed ensemble     
-         CALL DORGQR(ndim,ndim,ndim,FLV,ndim,tau,work,lwork,info) !retrieve Q (BLV) matrix 
-         CALL write_lyapvec(step,FLV,22,directionFLV)
-       END IF
-
-       IF (compute_CLV .AND. before_conv_FLV) THEN
-         CALL read_lyapvec(step,BLV,12,directionBLV)
-         CALL DGEMM ('n', 'n', ndim, ndim,ndim, 1.0d0, BLV, ndim,CLV, ndim,0.D0,CLV_real,ndim) 
-         CALL write_lyapvec(step,CLV_real,32,directionCLV) 
-       END IF
-     END IF
-   END IF   
-   CALL init_one(prop)
-   
+     END IF   
+     CALL init_one(prop)
+     
    END SUBROUTINE compute_vectors
    
    SUBROUTINE compute_exponents(t,step,forward)
-   INTEGER :: step
-   REAL(KIND=8) :: t
-   LOGICAL :: forward
-   LOGICAL :: past_conv_BLV,before_conv_FLV
-   INTEGER :: info
-
-   past_conv_BLV=(t-offset.gt.conv_BLV)
-   before_conv_FLV=(t-offset.lt.length_lyap-conv_FLV)
-   IF (past_conv_BLV) THEN
-     IF (forward) THEN
-       IF (compute_BLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_BLV,11,directionBLE)
-     ELSE
-       IF (compute_FLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_FLV,21,directionFLE)
-       IF (compute_CLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_CLV,31,directionCLE)
-     END IF
-   END IF      
+     INTEGER :: step
+     REAL(KIND=8) :: t
+     LOGICAL :: forward
+     LOGICAL :: past_conv_BLV,before_conv_FLV
+     INTEGER :: info
+     past_conv_BLV=(t-offset.gt.conv_BLV)
+     before_conv_FLV=(t-offset.lt.length_lyap-conv_FLV)
+     IF (past_conv_BLV) THEN
+       IF (forward) THEN
+         IF (compute_BLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_BLV,2,directionBLE)
+       ELSE
+         IF (compute_FLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_FLV,4,directionFLE)
+         IF (compute_CLV_LE .AND. before_conv_FLV) CALL write_lyapexp(step,loclyap_CLV,7,directionCLE)
+       END IF
+     END IF      
    END SUBROUTINE compute_exponents
       
    !> Routine to read R matrix
    SUBROUTINE read_R(i,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
      ELSE
        revI = i
      END IF
      k=ceiling(dble(revI)/dble(timestepsperfile))   
-     READ(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) R 
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+     READ(unit=selUnit,rec=revI-(k-1)*timestepsperfile) R 
    END SUBROUTINE read_R
   
    !> Routine to write R matrix
    SUBROUTINE write_R(i,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
      ELSE
        revI = i
      END IF
      k=ceiling(dble(revI)/dble(timestepsperfile))   
-     WRITE(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) R
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+     WRITE(unit=selUnit,rec=revI-(k-1)*timestepsperfile) R
    END SUBROUTINE write_R
 
-!> Routine to read lyapunov exponents
+   !> Routine to read lyapunov exponents
    SUBROUTINE read_lyapexp(i,exponents,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
-   REAL(KIND=8), DIMENSION(ndim), INTENT(OUT) :: exponents
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
+     REAL(KIND=8), DIMENSION(ndim), INTENT(OUT) :: exponents
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
      ELSE
        revI = i
      END IF
      k=ceiling(dble(revI)/dble(timestepsperfile))   
-     READ(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) exponents
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+
+     READ(unit=selUnit,rec=revI-(k-1)*timestepsperfile) exponents
    END SUBROUTINE read_lyapexp
   
    !> Routine to write lyapunov exponents
    SUBROUTINE write_lyapexp(i,exponents,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
-   REAL(KIND=8), DIMENSION(ndim), INTENT(IN) :: exponents
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
+     REAL(KIND=8), DIMENSION(ndim), INTENT(IN) :: exponents
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
      ELSE
        revI = i
      END IF
      k=ceiling(dble(revI)/dble(timestepsperfile))   
-     WRITE(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) exponents
-   END SUBROUTINE WRITE_LYAPEXP
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+     WRITE(unit=selUnit,rec=revI-(k-1)*timestepsperfile) exponents
+   END SUBROUTINE write_lyapexp
 
    !> Routine to read lyapunov vectors
    SUBROUTINE read_lyapvec(i,vectors,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
-   REAL(KIND=8), DIMENSION(ndim,ndim), INTENT(OUT) :: vectors
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
+     REAL(KIND=8), DIMENSION(ndim,ndim), INTENT(OUT) :: vectors
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?)
      ELSE
        revI = i
      END IF
      k=ceiling(dble(revI)/dble(timestepsperfile))   
-     READ(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) vectors
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+     READ(unit=selUnit,rec=revI-(k-1)*timestepsperfile) vectors
    END SUBROUTINE read_lyapvec
   
    !> Routine to write lyapunov vectors
    SUBROUTINE write_lyapvec(i,vectors,unitI,rev)
-   INTEGER :: i,unitI,k,revI
-   LOGICAL :: rev
-   REAL(KIND=8), DIMENSION(ndim,ndim), INTENT(IN) :: vectors
+     INTEGER :: i,unitI,k,revI,selUnit
+     LOGICAL :: rev
+     REAL(KIND=8), DIMENSION(ndim,ndim), INTENT(IN) :: vectors
      IF (rev) THEN
        revI = totalnumtimesteps - i + 1 ! write in reverse order (TODO: off by 1 error?) TEMPORARY FIX BY ADDING +2 in line 104 to totalnumtimesteps
      ELSE
        revI = i
      END IF
-     k=ceiling(dble(revI)/dble(timestepsperfile))   
-     WRITE(unit=unitI*stride+k,rec=revI-(k-1)*timestepsperfile) vectors
+     k=ceiling(dble(revI)/dble(timestepsperfile)) 
+     IF (unitI .ge. 10) THEN
+       selUnit=unitI
+     ELSE
+       selUnit=fileunits(unitI,k)
+     END IF
+     WRITE(unit=selUnit,rec=revI-(k-1)*timestepsperfile) vectors
    END SUBROUTINE write_lyapvec
 
    !> Routine that normalizes uppertriangular matrix (LAPACK
    !> standard)
    SUBROUTINE normMAT(M,norms) 
-   INTEGER :: i
-   REAL(KIND=8), dimension(ndim,ndim), INTENT(INOUT) :: M
-   REAL(KIND=8), dimension(ndim) :: norms
-   DO i=1,ndim
-     norms(i)=sqrt(sum(M(1:i,i)**2.0d0)) 
-     M(:,i)=M(:,i)/norms(i)
-   END DO
+     INTEGER :: i
+     REAL(KIND=8), dimension(ndim,ndim), INTENT(INOUT) :: M
+     REAL(KIND=8), dimension(ndim) :: norms
+     DO i=1,ndim
+       norms(i)=sqrt(sum(M(1:i,i)**2.0d0)) 
+       M(:,i)=M(:,i)/norms(i)
+     END DO
    END SUBROUTINE normMAT
 
    !> Routine that normalizes uppertriangular packed storage matrix (LAPACK
    !> standard)
    SUBROUTINE normTRI(packedR) 
-   INTEGER :: k,j,i
-   REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(INOUT) :: packedR
-   k = 0
-   DO j=1,ndim
-     packedR(k+1:k+j)=packedR(k+1:k+j)/sqrt(sum(packedR(k+1:k+j)**2.0d0))
-     k = k+j
-   END DO
+     INTEGER :: k,j,i
+     REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(INOUT) :: packedR
+     k = 0
+     DO j=1,ndim
+       packedR(k+1:k+j)=packedR(k+1:k+j)/sqrt(sum(packedR(k+1:k+j)**2.0d0))
+       k = k+j
+     END DO
    END SUBROUTINE normTRI
 
    !> Routine that transforms uppertriangular part into packed storage (LAPACK
    !> standard)
    SUBROUTINE packTRI(M,packedR) 
-   INTEGER :: k,j,i
-   REAL(KIND=8), dimension(ndim,ndim), INTENT(IN) :: M
-   REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(OUT) :: packedR
-   k = 0
-   DO j=1,ndim
-     DO i=1,j
-       k = k+1
-       packedR(k)=M(i,j)
+     INTEGER :: k,j,i
+     REAL(KIND=8), dimension(ndim,ndim), INTENT(IN) :: M
+     REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(OUT) :: packedR
+     k = 0
+     DO j=1,ndim
+       DO i=1,j
+         k = k+1
+         packedR(k)=M(i,j)
+       END DO
      END DO
-   END DO
    END SUBROUTINE packTRI
   
    !> Routine that transforms uppertriangular part into normal storage (LAPACK
    !> standard)
    SUBROUTINE unpackTRI(packedR,M) 
-   INTEGER :: k,j,i
-   REAL(KIND=8), dimension(ndim,ndim), INTENT(OUT) :: M
-   REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(IN) :: packedR
-   M=0.D0
-   k = 0
-   DO j=1,ndim
-     DO i=1,j
-       k = k+1
-       M(i,j)=packedR(k)
+     INTEGER :: k,j,i
+     REAL(KIND=8), dimension(ndim,ndim), INTENT(OUT) :: M
+     REAL(KIND=8), dimension(ndim*(ndim+1)/2), INTENT(IN) :: packedR
+     M=0.D0
+     k = 0
+     DO j=1,ndim
+       DO i=1,j
+         k = k+1
+         M(i,j)=packedR(k)
+       END DO
      END DO
-   END DO
    END SUBROUTINE unpackTRI
 END MODULE lyap_vectors
      

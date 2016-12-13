@@ -1,11 +1,22 @@
 
+ifndef nonlin
+  override nonlin=_
+else
+  ifeq ($(nonlin),true) 
+    override nonlin=_nonlin_
+  else
+    override nonlin=_
+  endif
+endif
+
+
 ifndef COMPILER
   COMPILER=ifort
 endif
 ifdef INTMODE
   # Define integrator module
   INTEGRATOR = $(INTMODE)_integrator
-  TL_AD_INTEGRATOR = $(INTMODE)_tl_ad_integrator
+  TL_AD_INTEGRATOR = $(INTMODE)$(nonlin)tl_ad_integrator
 else
   # Define integrator module
   INTEGRATOR = rk2_integrator
@@ -67,12 +78,13 @@ endif
 MODULES = util.mod params.mod inprod_analytic.mod aotensor_def.mod ic_def.mod ic_def_ext.mod $(INTEGRATOR).mod stat.mod tensor.mod tl_ad_tensor.mod $(TL_AD_INTEGRATOR).mod lyap_vectors.mod lyap_stat.mod $(IFPORT) energy_stat.mod energy_stat_clv.mod
 MODULE_OBJECTS = $(MODULES:.mod=.o)
 
-PROGRAMS = maooam maooam_lyapvectors maooam_ene
+PROGRAMS = maooam maooam_lyapvectors maooam_ene maooam_lyapvectors_smallper
 
 all: $(PROGRAMS)
 basic: maooam 
 lyap: maooam_lyapvectors 
 energy: maooam_ene
+smallper: maooam_lyapvectors_smallper
 debug: COMPILER_FLAGS = $(COMPILER_FLAGS_DBG) 
 debug: LD_FLAGS = $(LD_FLAGS_DBG)
 debug: all
@@ -93,10 +105,11 @@ ic_def.mod: util.mod aotensor_def.mod
 ic_def_ext.mod: util.mod aotensor_def.mod
 stat.mod: params.mod
 tl_ad_tensor.mod: aotensor_def.mod
-$(TL_AD_INTEGRATOR).mod: tl_ad_tensor.mod
+$(TL_AD_INTEGRATOR).mod: tl_ad_tensor.mod $(INTEGRATOR).mod
 lyap_vectors.mod: params.mod
 util.mod: $(IFPORT)
-energy_stat.mod: params.mod inprod_analytic.mod aotensor_def.mod
+energy_stat.mod: params.mod inprod_analytic.mod aotensor_def.mod util.mod
+energy_stat_clv.mod: params.mod inprod_analytic.mod aotensor_def.mod util.mod
 
 clean:
 	$(RM) *.o *.mod $(PROGRAMS) $(TEST_PROGRAMS) tests/*.out
