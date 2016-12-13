@@ -54,8 +54,12 @@ PROGRAM maooam_lyapvectors
   
   CALL init_energy            ! initialize energy computation for non-linear state 
   
-  CALL init_energy_clv       ! initialize energy computation for CLVs
+  CALL init_energy_clv        ! Initialize energy computation for CLVs
   
+  CALL init_stat              ! Initialize statistics for background
+
+  CALL lyap_init_stat         ! Initialize statistics for Lyapunov computations
+
   write(FMTX,'(A10,i3,A7)') '(F10.2,4x,',ndim,'E30.15)'
 
   OPEN(10,file='evol_field_unformatted.dat',ACCESS='DIRECT',FORM='UNFORMATTED',RECL=8*ndim)
@@ -86,9 +90,7 @@ PROGRAM maooam_lyapvectors
   END DO
 
   PRINT*, 'Starting the forward time evolution with tangent linear model ... t_run = ',t_run,'; offset = ',offset
-
-  CALL init_stat
-  CALL lyap_init_stat
+  
   t=0.D0
   t_up=dt/t_run*100.D0
   t=offset
@@ -101,12 +103,13 @@ PROGRAM maooam_lyapvectors
   ! more straightforward since most in between steps have to recomputed anyway
   ! we can just repeat the whole computation.
   
-    
+  ! Store transient state if no offset, otherwise store offset in filename  
   IF (offset .eq. 0) THEN
     CALL write_IC('after_transient_state',X) 
   ELSE
     CALL write_IC('offset_'//trim(str(int(offset))),X) 
   END IF
+
   ! 
   ! Start forward part of run of run
   !
@@ -126,6 +129,7 @@ PROGRAM maooam_lyapvectors
         WRITE(10,rec=IndexBen) X(1:ndim) !< Save background state 
         CALL energetics%compute(X)                      !< Compute Energy Terms
         CALL energetics%acc                             !< accumulate energy statistics
+
         IF (writeout) CALL energetics%print_energy(unit_ts_energy)  !< writeout momentary energy terms to unit 20
         IF (writeout) CALL energetics%print_acc(unit_mean_energy)     !< writeout accumulated energy terms and statistics to unit 21
      END IF
@@ -139,14 +143,20 @@ PROGRAM maooam_lyapvectors
   END DO
   PRINT*, 'Forward evolution finished.'
   
+  !
+  ! Store the final state
+  !
+
   IF (offset .eq. 0) THEN
     CALL write_IC('final_state',X) 
   ELSE
     CALL write_IC('final_state_offset_'//trim(str(int(offset))),X) 
   END IF
-!
-! Start Backward Integration
-!
+
+  !
+  ! Start Backward Integration
+  !
+
   IF (compute_CLV .OR. compute_CLV_LE .OR. compute_FLV .OR. compute_FLV_LE) THEN
     PRINT*, 'Starting the backward evolution ...'
     IF (compute_FLV .OR. compute_FLV_LE) THEN
@@ -173,6 +183,7 @@ PROGRAM maooam_lyapvectors
       t=t-rescaling_time
       IF (mod(t/t_run*100.D0,0.1)<t_up) WRITE(*,'(" Progress ",F6.1," %",A,$)') t/t_run*100.D0,char(13)
     END DO
+    PRINT*, 'Backward evolution finished.'
   END IF
 !  IF (writeout) THEN
 !     OPEN(10,file='mean_lyapunov.dat')
