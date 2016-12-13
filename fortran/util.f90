@@ -15,7 +15,7 @@ MODULE util
 
   PRIVATE
 
-  PUBLIC :: str,rstr,init_random_seed,init_one
+  PUBLIC :: str,rstr,init_random_seed,init_one,check_fileunit
 
 CONTAINS
     
@@ -105,5 +105,16 @@ CONTAINS
      END DO
 
   END SUBROUTINE init_one
+
+  SUBROUTINE check_fileunit(unit)
+    LOGICAL :: ex
+    INTEGER, INTENT(INOUT) :: unit
+    ex=.true.
+    DO WHILE (ex) 
+      ex=.false.
+      INQUIRE(UNIT=unit,OPENED=ex)
+      IF (ex) unit=unit + 1
+    END DO
+  END SUBROUTINE
 
 END MODULE util
