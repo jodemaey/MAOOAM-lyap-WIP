@@ -17,7 +17,7 @@ PROGRAM maooam_ene
   USE IC_def_ext, only: load_IC, write_IC, IC
   USE integrator, only: init_integrator,step
   USE stat
-  USE energy_stat, only: energetics
+  USE energy_stat, only: energetics, init_energy, unit_mean_energy, unit_ts_energy
   IMPLICIT NONE
 
   REAL(KIND=8), DIMENSION(:), ALLOCATABLE :: X       !< State variable in the model
@@ -36,11 +36,11 @@ PROGRAM maooam_ene
 
   CALL init_integrator  ! Initialize the integrator
 
+  CALL init_energy      ! initialize energy computation for non-linear state 
+
   write(FMTX,'(A10,i3,A6)') '(F10.2,4x,',ndim,'E15.5)'
   
   IF (writeout) OPEN(10,file='evol_field.dat')
-  IF (writeout) OPEN(20,file='energetics_ts.dat',form='unformatted',access='direct',recl=29*8,status='replace') ! 8 times number of energy terms computes in energy_stat.f90 
-  IF (writeout) OPEN(21,file='energetics_mean.dat',form='formatted',access='sequential',status='replace')
 
   ALLOCATE(X(0:ndim),Xnew(0:ndim))
 
@@ -73,8 +73,8 @@ PROGRAM maooam_ene
         CALL acc(X)                                     !< accumulate regular statistics
         CALL energetics%compute(X)                      !< Compute Energy Terms
         CALL energetics%acc                             !< accumulate energy statistics
-        IF (writeout) CALL energetics%print_energy(20)  !< writeout momentary energy terms to unit 20
-        IF (writeout) CALL energetics%print_acc(21)     !< writeout accumulated energy terms and statistics to unit 21
+        IF (writeout) CALL energetics%print_energy(unit_ts_energy)  !< writeout momentary energy terms to unit 20
+        IF (writeout) CALL energetics%print_acc(unit_mean_energy)     !< writeout accumulated energy terms and statistics to unit 21
      END IF
      IF (mod(t/t_run*100.D0,0.1)<t_up) WRITE(*,'(" Progress ",F6.1," %",A,$)') t/t_run*100.D0,char(13)
   END DO
