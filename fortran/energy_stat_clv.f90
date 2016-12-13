@@ -14,6 +14,7 @@ MODULE energy_stat_clv
   USE inprod_analytic, only: owavenum, awavenum, atmos, ocean
   USE aotensor_def, only: kdelta
   USE lyap_vectors, only: CLV_real
+  USE util, only: check_fileunit
   IMPLICIT NONE
 
   PRIVATE
@@ -120,7 +121,9 @@ MODULE energy_stat_clv
       sh%kurtosis=0.0d0
 
     END SUBROUTINE init_statistic_clv
-  
+    
+    !> Allocates arrays in a energetic_type_clv derived data type.
+
     SUBROUTINE init_energetics_clv(sh)
       CLASS(energetics_type_clv) :: sh
       CALL sh%zonal_heat_exchange%init !< Zonal Mean of  Heat exchange between atmosphere and ocean
@@ -159,17 +162,22 @@ MODULE energy_stat_clv
   
  
     END SUBROUTINE init_energetics_clv
-
+    
+    !> Initializes the energy computation output files and allocates the arrays in the variable energetics.
+    !> The subroutine is called in the main programm
     SUBROUTINE init_energy_clv
       
-      unit_mean_energy_clv=22
-      unit_ts_energy_clv=23
-      CALL energetics_clv%init
-        
+      unit_ts_energy_clv=22
+      CALL check_fileunit(unit_ts_energy_clv)
       IF (writeout) OPEN(unit_ts_energy_clv,file='energetics_ts_clv.dat', &
-      & form='unformatted',access='direct',recl=ndim*29*8,status='replace') ! 8 times number of energy terms computes in energy_stat.f90 
+      & form='unformatted',access='direct',recl=ndim*29*8,status='replace') ! 8 times number of energy terms computes in energy_stat_clv.f90 
+      
+      unit_mean_energy_clv=23
+      CALL check_fileunit(unit_mean_energy_clv)
       IF (writeout) OPEN(unit_mean_energy_clv,file='energetics_mean_clv.dat', &
       & form='formatted',access='sequential',status='replace')
+      CALL energetics_clv%init ! Initializes arrays in derived data type
+        
     END SUBROUTINE init_energy_clv
     
     !> Accumulate value in TYPE(statistics)
@@ -189,7 +197,7 @@ MODULE energy_stat_clv
       sh%variance=sh%xpower2-sh%mean**2.0d0
       DO c=1,ndim
         IF (sh%variance(c).ne.0) THEN
-          sh%skewness(c)=sh%cumulant3(c)/sh%variance(c)*(1.5d0)
+          sh%skewness(c)=sh%cumulant3(c)/sh%variance(c)**(1.5d0)
           sh%kurtosis(c)=sh%cumulant4(c)/sh%variance(c)**2.0d0 - 3.0d0
         ELSE
           sh%skewness(c)=0.0d0
@@ -539,7 +547,7 @@ MODULE energy_stat_clv
       ELSE
         U=2345
       END IF
-      
+
       write(unit=U,rec=step) &
       &  sh%zonal_heat_exchange%value  &
       &, sh%oc_heat_exchange%value  &

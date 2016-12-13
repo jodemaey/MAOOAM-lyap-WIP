@@ -13,6 +13,7 @@ MODULE energy_stat
   !
   USE inprod_analytic, only: owavenum, awavenum, atmos, ocean
   USE aotensor_def, only: kdelta
+  USE util,only: check_fileunit
   IMPLICIT NONE
 
   PRIVATE
@@ -84,10 +85,21 @@ MODULE energy_stat
     
   TYPE(energetics_type) :: energetics
   
-  PUBLIC :: statistic,energetics    
-  
+  PUBLIC :: statistic,energetics, init_energy
+  INTEGER, PUBLIC :: unit_mean_energy,unit_ts_energy
+
   CONTAINS
-    
+    !> Initialise Files for energy output
+    SUBROUTINE init_energy
+      unit_ts_energy=20
+      CALL check_fileunit(unit_ts_energy)
+      IF (writeout) OPEN(unit_ts_energy,file='energetics_ts.dat',form='unformatted',access='direct',recl=29*8,status='replace') ! 8 times number of energy terms computes in energy_stat.f90 
+      unit_mean_energy=21
+      CALL check_fileunit(unit_mean_energy)
+      IF (writeout) OPEN(unit_mean_energy,file='energetics_mean.dat',form='formatted',access='sequential',status='replace')
+      
+    END SUBROUTINE init_energy
+
     !> Accumulate value in TYPE(statistics)
     SUBROUTINE acc_stat(sh)
       IMPLICIT NONE
@@ -102,9 +114,13 @@ MODULE energy_stat
       sh%cumulant3=sh%xpower3-3.0d0*sh%xpower2*sh%mean+2.0d0*sh%mean**3.0d0
       sh%cumulant4=sh%xpower4-4.0d0*sh%xpower3*sh%mean+6.0d0*sh%xpower2*sh%mean**2.0d0-3.0d0*sh%mean**4.0d0
       sh%variance=sh%xpower2-sh%mean**2.0d0
-      sh%skewness=sh%cumulant3/sh%variance*(1.5d0)
-      sh%kurtosis=sh%cumulant4/sh%variance**2.0d0 - 3.0d0
-  
+      IF (sh%variance.ne.0) THEN
+        sh%skewness=sh%cumulant3/sh%variance**(1.5d0)
+        sh%kurtosis=sh%cumulant4/sh%variance**2.0d0 - 3.0d0
+      ELSE
+        sh%skewness=0.0d0
+        sh%kurtosis=0.0d0
+      END IF 
   
 
     END SUBROUTINE acc_stat
@@ -349,13 +365,13 @@ MODULE energy_stat
       CLASS(energetics_type) :: sh
       INTEGER, OPTIONAL :: unitInt
       INTEGER :: U
-      
+       
       IF (PRESENT(unitInt)) THEN
         U=unitInt
       ELSE
         U=2347
       END IF
-
+      
       WRITE(U,'(10(ES15.5,5x))') sh%zonal_heat_exchange
       WRITE(U,'(10(ES15.5,5x))') sh%oc_heat_exchange
       WRITE(U,'(10(ES15.5,5x))') sh%zonal_atm_LW_rec
